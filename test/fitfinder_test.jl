@@ -78,7 +78,33 @@ const filepath = "dataset/test.csv"
         scores = get_scores(adns, values, dI, I, t)
 
         @test length(scores) == 3
-        @test scores[1][2] == -Inf
-        @test scores[3][2] == -Inf
+        @test scores[1][2] == Inf
+        @test scores[3][2] == Inf
+    end
+
+    @testset "get_khi" begin
+        F = Float64
+        v_sparce = Tuple{F, F}[(1,1), (2,2), (3,3), (4,4)]
+        v_dense = Tuple{F, F}[(1,2), (1.1,0), (1.8,0), (2.3,4), (2.7,3), (3.5, -3), (4,3)]
+
+        score = 1 + 2^2 + 6^2 + 1
+
+        @test get_khi(v_sparce, v_dense) == score
+    end
+
+    @testset "find_fit" begin
+        @vars a1 a2 a3 I t
+        params_span = [
+            (a1, -10:eps():10),
+            (a2, -10:eps():10),
+            (a3, -10:eps():10),
+        ]
+
+        data = CSV.read(filepath)
+        wanted_values = collect(zip(data[:,:x],data[:,:y]))
+
+        dI = a1*I + sin(a2)*I - t*a3
+
+        find_fit(wanted_values, dI, I, t, params_span, 7, 10)
     end
 end
