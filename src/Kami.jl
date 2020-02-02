@@ -1,7 +1,6 @@
 module Kami
 
 include("fitfinder.jl")
-#include("test/runtests.jl")
 
 export main, test
 
