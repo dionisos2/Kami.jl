@@ -1,7 +1,7 @@
 using Test
 using Kami
 
-tests = ["fitfinder_test.jl"]
+tests = ["adn_test.jl"]
 
 for test in tests
   include(test)

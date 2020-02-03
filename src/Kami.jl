@@ -1,6 +1,9 @@
 module Kami
 
-include("fitfinder.jl")
+using SymPy
+using CSV
+
+include("adn.jl")
 
 export main, test
 
@@ -36,8 +39,8 @@ function main()
     # println(get_khi(wanted_values, getted_values))
 
 
-    adn = [(a1, 3.7678417264335256), (a2, 0.01658842607337263), (a3, 0.8146613188623284), (q, 7.665662121065622), (n, 1.68225673180426)]
-    display_result(adn, wanted_values, dI, I, t)
+    # adn = [(a1, 3.7678417264335256), (a2, 0.01658842607337263), (a3, 0.8146613188623284), (q, 7.665662121065622), (n, 1.68225673180426)]
+    # display_result(adn, wanted_values, dI, I, t)
 end
 
 function test()
