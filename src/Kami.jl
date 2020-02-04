@@ -4,6 +4,7 @@ using SymPy
 using CSV
 
 include("adn.jl")
+include("fit_equadiff.jl")
 
 export main, test
 
