@@ -31,7 +31,7 @@ using Kami
     end
 
     @testset "mutate" begin
-        params = EqDiffParams(x=>1:0.1:10, y=>-5:0.5:5, mutate_max_speed=0.5)
+        params = EqDiffParams(x=>1:eps():10, y=>-5:eps():5, mutate_max_speed=0.5)
 
         for _ in 1:20
             adn = EqDiffAdn(x=>10, y=>-5)
