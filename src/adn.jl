@@ -100,7 +100,7 @@ function improve_until(AdnType::Type{<:AbstractAdn}, params::Params, custom_para
         new_child_list = create_child_list(best_adn_list, child_count, custom_params)
         new_mutant_list = create_mutant_list(best_adn_list, mutant_count, custom_params)
 
-        adn_list = vcat(best_adn_list, new_random_list, new_child_list, new_mutant_list)
+        adn_list = [best_adn_list; new_random_list; new_child_list; new_mutant_list]
 
 
     end
