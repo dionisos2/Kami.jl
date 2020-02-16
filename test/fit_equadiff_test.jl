@@ -57,6 +57,7 @@ using Kami
     end
 
     @testset "generate_solution" begin
+        adn = EqDiffAdn(x=>2.0, y=>-5.0)
         
     end
 

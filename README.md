@@ -1,3 +1,3 @@
 # Kami
-A really super package/software in julia
+Some julia training with genetic algorithms.
 ## How to use
