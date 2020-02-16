@@ -70,6 +70,18 @@ function mutate(adn::EqDiffAdn, custom_params::EqDiffParams)::EqDiffAdn
 end
 
 function create_child(parents::Vector{EqDiffAdn}, custom_params)::EqDiffAdn
+    if isempty(parents)
+        throw(DomainError("parents should not be empty"))
+    end
+
+    adn_res = EqDiffAdn()
+    len = length(parents)
+
+    for param in custom_params.params_span
+        adn_res.params[param.first] = sum(el->el[param.first], parents)/len
+    end
+
+    return adn_res
 end
 
 # function each_gen(adn_score_list::Vector{Tuple{EqDiffAdn,Float64}},

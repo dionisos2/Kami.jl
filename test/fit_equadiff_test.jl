@@ -7,10 +7,13 @@ using Kami
         adn = EqDiffAdn([(x, 1.0), (y, 2.2)])
         adn2 = EqDiffAdn([(x, 1), (y, 2)])
         adn3 = EqDiffAdn(x=>1.0, y=>2.2)
+        adn4 = EqDiffAdn(Dict(x=>1.0, y=>2.2))
+
         params = EqDiffParams([(x, 1:0.1:10), (y, -5:0.5:5)])
         params2 = EqDiffParams([(x, 1:0.1:10)], mutate_max_speed=0.5)
         params3 = EqDiffParams(x=>1:0.1:10, y=>1:0.5:5)
         params4 = EqDiffParams(x=>1:0.1:10, y=>1:0.5:5, mutate_max_speed=0.5)
+        params5 = EqDiffParams(Dict(x=>1:0.1:10, y=>1:0.5:5))
 
         @test adn.params[x] == adn[x] == 1.0
         @test adn.params[y] == adn[y] == 2.2
@@ -45,9 +48,16 @@ using Kami
     end
 
     @testset "create_child" begin
+        params = EqDiffParams(x=>1:eps():10, y=>-5:eps():5, mutate_max_speed=0.5)
+        parents = [create_random(EqDiffAdn, params) for _ in 1:10]
+
+        child = create_child(parents, params)
+        @test child[x] == sum(el->el[x], parents)/length(parents)
+        @test child[y] == sum(el->el[y], parents)/length(parents)
     end
 
-    @testset "gennerate_solution" begin
+    @testset "generate_solution" begin
+        
     end
 
     @testset "get_score" begin
