@@ -61,8 +61,18 @@ end
 Base.getindex(params::EqDiffParams, key::Sym) = params.params_span[key]
 
 
+function action(adn::AbstractAdn, custom_params::EqDiffParams):Float64
+    sol = generate_solution(adn, custom_params)
+    wanted_values = custom_params.wanted_values
 
-function action(adn::EqDiffAdn, custom_params::EqDiffParams)::Float64
+    if sol.retcode == :Success
+        actual_values = collect(zip(sol.t, sol.u))
+        adn_score = get_score(wanted_values, actual_values)
+    else
+        adn_score = -Inf
+    end
+
+    return adn_score
 end
 
 function create_random(::Type{EqDiffAdn}, custom_params::EqDiffParams)::EqDiffAdn
@@ -117,7 +127,7 @@ function generate_solution(adn::EqDiffAdn, custom_params::EqDiffParams)
     tspan = (Float64(custom_params.wanted_values[1][1]), Float64(custom_params.wanted_values[end][1]))
     f0 = custom_params.wanted_values[1][2]
 
-    funct = subs(custom_params.funct, adn.params...)
+    funct = subs(custom_params.dfunct, adn.params...)
     lambdified_funct = lambdify(funct, (custom_params.funct, custom_params.variable))
     correct_funct(f,_,t) = lambdified_funct(f,t)
 
@@ -125,7 +135,7 @@ function generate_solution(adn::EqDiffAdn, custom_params::EqDiffParams)
     sol = nothing
 
     try
-        sol = DifferentialEquations.solve(prob, Euler(), alg_hints=[:stiff], dt=0.1, verbose=false)
+        sol = DifferentialEquations.solve(prob, Euler(), alg_hints=[:stiff], dt=0.01, verbose=false)
     catch error
         if !isa(error, DomainError)
             rethrow()
@@ -134,6 +144,37 @@ function generate_solution(adn::EqDiffAdn, custom_params::EqDiffParams)
 
     return sol
 end
+
+function get_score(values_sparce, values_dense)
+    is, id = 1, 1
+    ls, ld = length(values_sparce), length(values_dense)
+
+    score = 0
+    n = 1
+    while (is < ls) && (id <= ld)
+        vxs = values_sparce[is][1]
+        vxd = values_dense[id][1]
+
+        vys = values_sparce[is][2]
+        vyd = values_dense[id][2]
+
+
+        if vxd >= vxs
+            gaps = values_sparce[is+1][1] - values_sparce[is][1]
+            score += abs(vys-vyd)^2 * gaps
+            is += 1
+            n += 1
+        end
+
+        id += 1
+    end
+
+    gaps = values_sparce[end][1]-values_sparce[end-1][1]
+    last_diff = abs(values_sparce[end][2]-values_dense[end][2])
+
+    return -(score + last_diff^2 * gaps)
+end
+
 
 # function each_gen(adn_score_list::Vector{Tuple{EqDiffAdn,Float64}},
 #                   best_score::Float64,

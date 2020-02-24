@@ -71,8 +71,36 @@ const filepath = "dataset/test.csv"
     end
 
     @testset "get_score" begin
+        F = Float64
+        v_sparce = Tuple{F, F}[(1,1), (2,2), (3,3), (4,4)]
+        v_dense = Tuple{F, F}[(1,2), (1.1,0), (1.8,0), (2.3,4), (2.7,3), (3.5, -3), (4,3)]
+
+        score = -(1 + 2^2 + 6^2 + 1)
+
+        @test get_score(v_sparce, v_dense) == score
     end
 
     @testset "action" begin
+        @vars Y t x
+
+        # dY = 2*Y + 3*t →
+        # y(t) = C*e^(2*t) - 3*t/2 - 3/4 (C=2)
+        y(t) = 2*exp(2*t) - 3*t/2 - 3/4
+        dY = x*Y + 3*t
+
+
+        adn_less = EqDiffAdn(x=>1.9)
+        adn_good = EqDiffAdn(x=>2.0)
+        adn_more = EqDiffAdn(x=>2.1)
+        adn_very_bad = EqDiffAdn(x=>7)
+
+        wanted_values = [(t,y(t)) for t in 0:0.02:2]
+        params = EqDiffParams(x=>0:eps():10, dfunct=dY, funct=Y, variable=t, wanted_values=wanted_values)
+
+        score_less, score_good, score_more, score_very_bad = [action(adn, params) for adn in [adn_less, adn_good, adn_more, adn_very_bad]]
+        @test score_good > score_less
+        @test score_good > score_more
+        @test score_very_bad < score_less
+        @test score_very_bad < score_more
     end
 end
