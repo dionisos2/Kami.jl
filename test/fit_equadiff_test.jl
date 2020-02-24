@@ -1,6 +1,8 @@
 using Test
 using Kami
+
 @vars x y
+const filepath = "dataset/test.csv"
 
 @testset "test fit_equadiff" begin
     @testset "EqDiffAdn and EqDiffParams constructors" begin
@@ -57,8 +59,15 @@ using Kami
     end
 
     @testset "generate_solution" begin
+        @vars Y t
+
+        # Y(t) = -(x^2*e^(t*x))/(c_1*x^2 + y*e^(t*x)*(t*x - 1))
+        dY = x*Y+t*y*Y^2
+
         adn = EqDiffAdn(x=>2.0, y=>-5.0)
-        
+        params = EqDiffParams(x=>1:eps():10, y=>-5:eps():5, dfunct=dY, funct=Y, variable=t, wanted_values=[(0.0,1.0), (10.0,10.0)])
+
+        sol = generate_solution(adn, params)
     end
 
     @testset "get_score" begin
