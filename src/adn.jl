@@ -2,7 +2,9 @@ using Parameters
 using StatsBase
 using Dates
 
-export AbstractAdn, improve_until, create_random_list, create_mutant_list, create_child_list
+export AbstractAdn, Params
+
+export improve_until, create_random_list, create_mutant_list, create_child_list
 
 
 abstract type AbstractAdn end
@@ -54,7 +56,7 @@ function create_mutant_list(adn_list::Vector{<:AbstractAdn}, count, custom_param
     len = length(adn_list)
 
     for index in 0:count-1
-        push!(mutant_list, mutate(adn_list[(index%len)+1]))
+        push!(mutant_list, mutate(adn_list[(index%len)+1], custom_params))
     end
 
     return mutant_list
@@ -75,6 +77,7 @@ function improve_until(AdnType::Type{<:AbstractAdn}, params::Params, custom_para
 
     to_remove_count = mutant_count + child_count + random_count
 
+
     if to_remove_count >= adn_count
         throw(DomainError("mutant_ratio + child_ratio + random_ratio > 1"))
     end
@@ -84,7 +87,10 @@ function improve_until(AdnType::Type{<:AbstractAdn}, params::Params, custom_para
     duration = now()-start_date
     generation = 0
 
+
     while ((best_score < score_max) && (duration < duration_max))
+        action(adn_list[1], custom_params) # TODO:to remove
+
         adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
         sort!(adn_score_list, by=el->el[2], rev=true)
 

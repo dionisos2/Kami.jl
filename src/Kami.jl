@@ -2,26 +2,27 @@ module Kami
 
 using SymPy
 using CSV
+using Debugger
 
 include("adn.jl")
 include("fit_equadiff.jl")
 
-export main, test
+export main, tt
 
 function main()
-    data = CSV.read("dataset/kami.csv")
-
-    wanted_values = collect(zip(data[:,:x],data[:,:y]))
-
-
     # wanted_values = [(t, 2+exp(t/300)) for t in 0:1000]
+    # dI = a1*I + a2
+
+    # data = CSV.read("dataset/kami.csv")
+    # wanted_values = collect(zip(data[:,:x],data[:,:y]))
+
+    wanted_values = Tuple{Float64, Float64}[(0,0),(1,1),(2,4)]
 
 
     @vars t I a1 a2 a3 q n
-    #dI (t) = −a_1*I(t) − a_2*I(t)^2 + (a_3 * I(t) + q) * I (t)^(1−(1/n))
     dI = -a1*I - a2*I^2 + (a3 * I + q) * I^(1-(1/n))
 
-    # dI = a1*I + a2
+
 
     params_span = [
         (a1, 0:eps():10),
@@ -32,19 +33,13 @@ function main()
     ];
 
 
-    # find_fit(wanted_values, dI, I, t, params_span, 500, 15)
+    params = Params(duration_max=Second(30))
+    custom_params = EqDiffParams(params_span, dfunct=dI, funct=I, variable=t, wanted_values=wanted_values)
 
-    # adn = [(a1, 0.0033094511474171277), (a2, -0.006758205949772471)]
-    # sol = generate_solution(adn, wanted_values, dI, I, t);
-    # getted_values = collect(zip(sol.t, sol.u))
-    # println(get_khi(wanted_values, getted_values))
-
-
-    # adn = [(a1, 3.7678417264335256), (a2, 0.01658842607337263), (a3, 0.8146613188623284), (q, 7.665662121065622), (n, 1.68225673180426)]
-    # display_result(adn, wanted_values, dI, I, t)
+    improve_until(EqDiffAdn, params, custom_params)
 end
 
-function test()
+function tt()
     include("test/runtests.jl")
 end
 
