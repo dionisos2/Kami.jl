@@ -40,9 +40,9 @@ action(adn::AbstractAdn, custom_params)::Float64 = throw(MissingException("actio
 "Whatever you want to show at each generation"
 function each_gen(adn_score_list::Vector{Tuple{T,Float64}}, best_score::Float64, duration::Period, generation::Int, params::Params, custom_params) where T<:AbstractAdn
     println("-"^10,"GENERATION:",generation,"-"^10)
-    println(best_score, "/", params.score_max)
-    println(duration.value/1000, "/", params.duration_max)
-    println(adn_score_list)
+    println("score = ", best_score, "/", params.score_max)
+    println("duration = ", duration.value/1000, "/", params.duration_max)
+    println(adn_score_list[1])
 end
 
 # ---------- API end ----------

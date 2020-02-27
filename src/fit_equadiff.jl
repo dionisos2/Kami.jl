@@ -18,44 +18,52 @@ EqDiffAdn(params::Pair{Sym, <:Real}...) = EqDiffAdn(Dict{Sym, Float64}(params))
 Base.getindex(adn::EqDiffAdn, key::Sym) = adn.params[key]
 
 
+const FunctionGraph = Union{Vector{Tuple{Float64, Float64}}, Vector{Vector{Float64}}}
 """
 ex : EqDiffParams(x=>0:1:10, y=>-10:esp():5)
 Take care of the fact mutation will choose between all 0:eps():10 for x, and not 0:1:10
 """
 struct EqDiffParams
     mutate_max_speed::Float64
+
+    "dfunct should be a sym representing a differential equation (ex dI/dt=2*I → dfunct=dI and funct=I)"
     dfunct::Union{Sym, Real}
     funct::Union{Sym, Nothing}
     variable::Union{Sym, Nothing}
-    wanted_values::Union{Vector{Tuple{Float64, Float64}}, Vector{Vector{Float64}}}
+
+    "dvariable (often called dt), is the size of each step on the abscissa used to approximate the solution of the differential equation"
+    dvariable::Float64
+    wanted_values::FunctionGraph
 
     params_span::Dict{Sym, StepRangeLen}
 end
-
 
 const DEFAULT_MUTATE_MAX_SPEED = 0.5
 const DEFAULT_DFUNCT = 1
 const DEFAULT_FUNCT = nothing
 const DEFAULT_VARIABLE = nothing
+const DEFAULT_DVARIABLE = 0.1
 const DEFAULT_WANTED_VALUES = Tuple{Float64, Float64}[]
 const ArrayCouple2 = AbstractArray{Tuple{Sym, T}} where T<:StepRangeLen
 
 function EqDiffParams(params_span::Union{ArrayCouple2, Dict{Sym, <:StepRangeLen}};
-                      mutate_max_speed=DEFAULT_MUTATE_MAX_SPEED,
-                      dfunct=DEFAULT_DFUNCT,
-                      funct=DEFAULT_FUNCT,
-                      variable=DEFAULT_VARIABLE,
-                      wanted_values = DEFAULT_WANTED_VALUES)
-    return EqDiffParams(mutate_max_speed, dfunct, funct, variable, wanted_values, Dict(params_span))
+                      mutate_max_speed::Float64=DEFAULT_MUTATE_MAX_SPEED,
+                      dfunct::Union{Sym, Real}=DEFAULT_DFUNCT,
+                      funct::Union{Sym, Nothing}=DEFAULT_FUNCT,
+                      variable::Union{Sym, Nothing}=DEFAULT_VARIABLE,
+                      dvariable::Float64=DEFAULT_DVARIABLE,
+                      wanted_values::FunctionGraph = DEFAULT_WANTED_VALUES)
+    return EqDiffParams(mutate_max_speed, dfunct, funct, variable, dvariable, wanted_values, Dict(params_span))
 end
 
 function EqDiffParams(params_span::Pair{Sym, <:StepRangeLen}...;
-                      mutate_max_speed=DEFAULT_MUTATE_MAX_SPEED,
-                      dfunct=DEFAULT_DFUNCT,
-                      funct=DEFAULT_FUNCT,
-                      variable=DEFAULT_VARIABLE,
-                      wanted_values = DEFAULT_WANTED_VALUES)
-    return EqDiffParams(mutate_max_speed, dfunct, funct, variable, wanted_values, Dict(params_span))
+                      mutate_max_speed::Float64=DEFAULT_MUTATE_MAX_SPEED,
+                      dfunct::Union{Sym, Real}=DEFAULT_DFUNCT,
+                      funct::Union{Sym, Nothing}=DEFAULT_FUNCT,
+                      variable::Union{Sym, Nothing}=DEFAULT_VARIABLE,
+                      dvariable::Float64=DEFAULT_DVARIABLE,
+                      wanted_values::FunctionGraph = DEFAULT_WANTED_VALUES)
+    return EqDiffParams(mutate_max_speed, dfunct, funct, variable, dvariable, wanted_values, Dict(params_span))
 end
 
 Base.getindex(params::EqDiffParams, key::Sym) = params.params_span[key]
@@ -65,7 +73,7 @@ function action(adn::AbstractAdn, custom_params::EqDiffParams):Float64
     sol = generate_solution(adn, custom_params)
     wanted_values = custom_params.wanted_values
 
-    if sol.retcode == :Success
+    if (sol != nothing) && (sol.retcode == :Success)
         actual_values = collect(zip(sol.t, sol.u))
         adn_score = get_score(wanted_values, actual_values)
     else
@@ -134,12 +142,15 @@ function generate_solution(adn::EqDiffAdn, custom_params::EqDiffParams)
     prob = ODEProblem(correct_funct, f0, tspan)
     sol = nothing
 
+    @time begin
     try
-        sol = DifferentialEquations.solve(prob, Euler(), alg_hints=[:stiff], dt=0.01, verbose=false)
+        sol = DifferentialEquations.solve(prob, Euler(), alg_hints=[:stiff], dt=custom_params.dvariable, verbose=false)
+        # sol = DifferentialEquations.solve(prob, Rosenbrock23(autodiff=false), dt=custom_params.dvariable, verbose=false)
     catch error
         if !isa(error, DomainError)
             rethrow()
         end
+    end
     end
 
     return sol

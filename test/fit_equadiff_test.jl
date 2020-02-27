@@ -95,7 +95,7 @@ const filepath = "dataset/test.csv"
         adn_very_bad = EqDiffAdn(x=>7)
 
         wanted_values = [(t,y(t)) for t in 0:0.02:2]
-        params = EqDiffParams(x=>0:eps():10, dfunct=dY, funct=Y, variable=t, wanted_values=wanted_values)
+        params = EqDiffParams(x=>0:eps():10, dfunct=dY, funct=Y, variable=t, dvariable=0.02, wanted_values=wanted_values)
 
         score_less, score_good, score_more, score_very_bad = [action(adn, params) for adn in [adn_less, adn_good, adn_more, adn_very_bad]]
         @test score_good > score_less
