@@ -1,5 +1,6 @@
 using Test
 using Kami
+using SymEngine
 
 @vars x y
 const filepath = "dataset/test.csv"

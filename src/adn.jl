@@ -38,7 +38,7 @@ action(adn::AbstractAdn, custom_params)::Float64 = throw(MissingException("actio
 (create_child(parents::Vector{T}, custom_params)::T) where T<:AbstractAdn = throw(MissingException("create_child should be defined for concrete type of AbstractAdn"))
 
 "Whatever you want to show at each generation"
-function each_gen(adn_score_list::Vector{Tuple{T,Float64}}, best_score::Float64, duration::Period, generation::Int, params::Params, custom_params) where T<:AbstractAdn
+function print_generation_result(adn_score_list::Vector{Tuple{T,Float64}}, best_score::Float64, duration::Period, generation::Int, params::Params, custom_params) where T<:AbstractAdn
     println("-"^10,"GENERATION:",generation,"-"^10)
     println("score = ", best_score, "/", params.score_max)
     println("duration = ", duration.value/1000, "/", params.duration_max)
@@ -88,28 +88,30 @@ function improve_until(AdnType::Type{<:AbstractAdn}, params::Params, custom_para
     generation = 0
 
 
-    while ((best_score < score_max) && (duration < duration_max))
-        action(adn_list[1], custom_params) # TODO:to remove
+    function producer(c::Channel)
+        while ((best_score < score_max) && (duration < duration_max))
+            action(adn_list[1], custom_params) # TODO:to remove
 
-        adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
-        sort!(adn_score_list, by=el->el[2], rev=true)
+            adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
+            sort!(adn_score_list, by=el->el[2], rev=true)
 
-        generation += 1
-        best_score = adn_score_list[1][2]
-        duration = now()-start_date
-        each_gen(adn_score_list, best_score, duration, generation, params, custom_params)
+            generation += 1
+            best_score = adn_score_list[1][2]
+            duration = now()-start_date
+            # print_generation_result(adn_score_list, best_score, duration, generation, params, custom_params)
+            put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
 
-        adn_score_list = adn_score_list[1:end-to_remove_count]
-        best_adn_list = [adn_score[1] for adn_score in adn_score_list]
+            adn_score_list = adn_score_list[1:end-to_remove_count]
+            best_adn_list = [adn_score[1] for adn_score in adn_score_list]
 
-        new_random_list = create_random_list(AdnType, random_count, custom_params)
-        new_child_list = create_child_list(best_adn_list, child_count, custom_params)
-        new_mutant_list = create_mutant_list(best_adn_list, mutant_count, custom_params)
+            new_random_list = create_random_list(AdnType, random_count, custom_params)
+            new_child_list = create_child_list(best_adn_list, child_count, custom_params)
+            new_mutant_list = create_mutant_list(best_adn_list, mutant_count, custom_params)
 
-        adn_list = [best_adn_list; new_random_list; new_child_list; new_mutant_list]
-
-
+            adn_list = [best_adn_list; new_random_list; new_child_list; new_mutant_list]
+        end
     end
 
-    return adn_list
+    channel = Channel(producer)
+    return channel
 end

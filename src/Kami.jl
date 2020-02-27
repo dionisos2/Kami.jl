@@ -1,14 +1,16 @@
 module Kami
 
-using SymPy
+using SymEngine
 using CSV
 using Debugger
 using Plots
+using TerminalMenus
+using ProgressMeter
 
 include("adn.jl")
 include("fit_equadiff.jl")
 
-export main, tt, @enter
+export main, @enter
 
 function main()
 
@@ -22,7 +24,7 @@ function main()
     wanted_values = [(Float64(t), 2+exp(t/300)) for t in 0:1000]
     dI = a1*I + a2
 
-    params_span = Tuple{Sym, StepRangeLen}[
+    params_span = Tuple{Basic, StepRangeLen}[
         (a1, 0.0001:eps():0.01),
         (a2, -0.01:eps():-0.0001),
         # (a3, 0:eps():10),
@@ -31,23 +33,58 @@ function main()
     ];
 
 
-    params = Params(duration_max=Second(60*3))
+    params = Params(duration_max=Second(60), adn_count=10)
     custom_params = EqDiffParams(params_span, dfunct=dI, funct=I, variable=t, dvariable=0.5, wanted_values=wanted_values, mutate_max_speed=0.001)
 
-    result = improve_until(EqDiffAdn, params, custom_params)
-    # adn = EqDiffAdn(Dict(a2 => -2/300,a1 => 1/300))
-    # result = [adn]
+    run_finder(EqDiffAdn, params, custom_params)
+end
 
-    sol = generate_solution(result[1], custom_params)
+function run_finder(EqDiffAdn, params, custom_params)
+    progress_time = Progress(Millisecond(params.duration_max).value, "Time : ")
+    generator = improve_until(EqDiffAdn, params, custom_params)
+    adn = nothing
+    ok = true
 
-    graph = plot(wanted_values, label="Wanted", ls=:dash, linewidth=3)
+    while ok
+        try
+            println("try")
+            result = take!(generator)
+            println(generator.state)
+            if generator.state == :closed
+                break
+            end
+
+            sleep(2)
+            println("ok")
+            adn = result[1][1][1]
+            to_show = [
+                ("generation", result[:generation])
+                ("best score", "$(result[:best_score]))/$(params.score_max)")
+            ]
+
+            update!(progress_time, Millisecond(result[:duration]).value, showvalues = to_show)
+        catch error
+            println(error)
+            if isa(error, InterruptException)
+                menu = RadioMenu(["quit", "continue"], pagesize=10)
+                choice = request("Choose :", menu)
+                if choice == 1
+                    break
+                else
+                    println("Good choice")
+                end
+            else
+                rethrow()
+            end
+        end
+    end
+
+    sol = generate_solution(adn, custom_params)
+
+    graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
     plot!(graph, sol, label="Result")
 
     display(graph)
-end
-
-function tt()
-    include("test/runtests.jl")
 end
 
 end # module
