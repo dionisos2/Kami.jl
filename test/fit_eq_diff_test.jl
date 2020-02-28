@@ -1,5 +1,5 @@
 using Test
-using Kami
+using Kami.FitEqDiff
 using SymEngine
 
 @vars x y

@@ -6,9 +6,11 @@ using Debugger
 using Plots
 using TerminalMenus
 using ProgressMeter
+using Dates
 
-include("adn.jl")
-include("fit_equadiff.jl")
+include("fit_eq_diff.jl")
+
+using .FitEqDiff
 
 export main, @enter
 
@@ -33,7 +35,7 @@ function main()
     ];
 
 
-    params = Params(duration_max=Second(60), adn_count=10)
+    params = Params(duration_max=Second(60*3), adn_count=10)
     custom_params = EqDiffParams(params_span, dfunct=dI, funct=I, variable=t, dvariable=0.5, wanted_values=wanted_values, mutate_max_speed=0.001)
 
     run_finder(EqDiffAdn, params, custom_params)
@@ -41,44 +43,45 @@ end
 
 function run_finder(EqDiffAdn, params, custom_params)
     progress_time = Progress(Millisecond(params.duration_max).value, "Time : ")
-    generator = improve_until(EqDiffAdn, params, custom_params)
-    adn = nothing
-    ok = true
+    generator = create_improve_generator(EqDiffAdn, params, custom_params)
 
-    while ok
-        try
-            println("try")
-            result = take!(generator)
-            println(generator.state)
-            if generator.state == :closed
-                break
-            end
+    for result in generator
+        if isready(generator)
+            continue # We empty the channel until asking question
+        end
 
-            sleep(2)
-            println("ok")
-            adn = result[1][1][1]
-            to_show = [
-                ("generation", result[:generation])
-                ("best score", "$(result[:best_score]))/$(params.score_max)")
-            ]
+        having_question = true
+        while having_question
+            println("Generation : $(result[:generation])")
+            menu = RadioMenu(["quit",
+                              "continue",
+                              "show info",
+                              "show best adn graph"]
+                             , pagesize=10)
 
-            update!(progress_time, Millisecond(result[:duration]).value, showvalues = to_show)
-        catch error
-            println(error)
-            if isa(error, InterruptException)
-                menu = RadioMenu(["quit", "continue"], pagesize=10)
-                choice = request("Choose :", menu)
-                if choice == 1
-                    break
-                else
-                    println("Good choice")
-                end
-            else
-                rethrow()
+            choice = request("Choose : ", menu)
+
+            if choice == 1
+                close(generator)
+                return "FIN"
+            elseif choice == 2
+                having_question = false
+                println("Continue")
+            elseif choice == 3
+                println("Generation : $(result[:generation])")
+                println("Best score : $(result[:best_score])")
+                println("Best adn : $(result[:adn_score_list][1][1])")
+            elseif choice == 4
+                best_adn = result[:adn_score_list][1][1]
+                show_adn_graph(best_adn, custom_params)
             end
         end
+
     end
 
+end
+
+function show_adn_graph(adn, custom_params)
     sol = generate_solution(adn, custom_params)
 
     graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)

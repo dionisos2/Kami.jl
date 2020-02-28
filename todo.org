@@ -1,3 +1,4 @@
-* TODO refactoring
-* TODO improve get_khi
-* TODO add small mutations
+* TODO create module for fit_equadiff
+* TODO adn for basic functions
+* TODO client/server system to be able to stop the main loop
+* TODO improve interface

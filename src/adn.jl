@@ -4,7 +4,7 @@ using Dates
 
 export AbstractAdn, Params
 
-export improve_until, create_random_list, create_mutant_list, create_child_list
+export create_improve_generator, create_random_list, create_mutant_list, create_child_list
 
 
 abstract type AbstractAdn end
@@ -67,7 +67,7 @@ function create_child_list(adn_list::Vector{<:AbstractAdn}, count, custom_params
 end
 
 "Improve a list of adn, until we get something bigger than score_max or until duration_max passed"
-function improve_until(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
+function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
     @unpack score_max, duration_max, adn_count, random_ratio, child_ratio, mutant_ratio = params
 
     adn_list = create_random_list(AdnType, adn_count, custom_params)
@@ -100,6 +100,7 @@ function improve_until(AdnType::Type{<:AbstractAdn}, params::Params, custom_para
             duration = now()-start_date
             # print_generation_result(adn_score_list, best_score, duration, generation, params, custom_params)
             put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
+            sleep(0.1)
 
             adn_score_list = adn_score_list[1:end-to_remove_count]
             best_adn_list = [adn_score[1] for adn_score in adn_score_list]
@@ -112,6 +113,6 @@ function improve_until(AdnType::Type{<:AbstractAdn}, params::Params, custom_para
         end
     end
 
-    channel = Channel(producer)
+    channel = Channel(producer, 100)
     return channel
 end

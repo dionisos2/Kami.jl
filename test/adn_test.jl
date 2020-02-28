@@ -1,5 +1,5 @@
 using Test
-using Kami
+using Kami.FitEqDiff
 using Dates
 
 struct AdnMock <: AbstractAdn
@@ -29,9 +29,9 @@ end
         @test create_child([adn]) == AdnMock(7, 5)
     end
 
-    @testset "improve_until" begin
+    @testset "create_improve_generator" begin
         params = Kami.Params(adn_count = 10, duration_max=Second(1))
-        generator = improve_until(AdnMock, params, -4)
+        generator = create_improve_generator(AdnMock, params, -4)
         adn = nothing
         for result in generator
             adn = result[:adn_score_list][1][1]
