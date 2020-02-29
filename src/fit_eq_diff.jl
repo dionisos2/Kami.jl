@@ -10,17 +10,17 @@ using Parameters
 export EqDiffAdn, EqDiffParams
 export action, create_random, mutate, create_child, generate_solution, get_score
 
-
+""" ! Don’t use :I as a variable name ! """
 struct EqDiffAdn <: AbstractAdn
-    params::Dict{Basic, Float64}
+    params::Dict{Symbol, Float64}
 end
 
 
-#AbstractArray{Tuple{Basic, T} where T<:Real} invalide because Array{Tuple{Int,Float64},1} <: AbstractArray{Tuple{Int, <:Real}}
-const ArrayCouple1 = AbstractArray{Tuple{Basic, T}} where T<:Real
-EqDiffAdn(params::ArrayCouple1) = EqDiffAdn(Dict{Basic, Float64}(params))
-EqDiffAdn(params::Pair{Basic, <:Real}...) = EqDiffAdn(Dict{Basic, Float64}(params))
-Base.getindex(adn::EqDiffAdn, key::Basic) = adn.params[key]
+#AbstractArray{Tuple{Symbol, T} where T<:Real} invalide because Array{Tuple{Int,Float64},1} <: AbstractArray{Tuple{Int, <:Real}}
+const ArrayCouple1 = AbstractArray{Tuple{Symbol, T}} where T<:Real
+EqDiffAdn(params::ArrayCouple1) = EqDiffAdn(Dict{Symbol, Float64}(params))
+EqDiffAdn(params::Pair{Symbol, <:Real}...) = EqDiffAdn(Dict{Symbol, Float64}(params))
+Base.getindex(adn::EqDiffAdn, key::Symbol) = adn.params[key]
 
 
 const FunctionGraph = Union{Vector{Tuple{Float64, Float64}}, Vector{Vector{Float64}}}
@@ -32,15 +32,15 @@ struct EqDiffParams
     mutate_max_speed::Float64
 
     "dfunct should be a sym representing a differential equation (ex dI/dt=2*I → dfunct=dI and funct=I)"
-    dfunct::Union{Basic, Real}
-    funct::Union{Basic, Nothing}
-    variable::Union{Basic, Nothing}
+    dfunct::Union{Symbol, Real}
+    funct::Union{Symbol, Nothing}
+    variable::Union{Symbol, Nothing}
 
     "dvariable (often called dt), is the size of each step on the abscissa used to approximate the solution of the differential equation"
     dvariable::Float64
     wanted_values::FunctionGraph
 
-    params_span::Dict{Basic, StepRangeLen}
+    params_span::Dict{Symbol, StepRangeLen}
 end
 
 const DEFAULT_MUTATE_MAX_SPEED = 0.5
@@ -49,29 +49,29 @@ const DEFAULT_FUNCT = nothing
 const DEFAULT_VARIABLE = nothing
 const DEFAULT_DVARIABLE = 0.1
 const DEFAULT_WANTED_VALUES = Tuple{Float64, Float64}[]
-const ArrayCouple2 = AbstractArray{Tuple{Basic, T}} where T<:StepRangeLen
+const ArrayCouple2 = AbstractArray{Tuple{Symbol, T}} where T<:StepRangeLen
 
-function EqDiffParams(params_span::Union{ArrayCouple2, Dict{Basic, <:StepRangeLen}};
+function EqDiffParams(params_span::Union{ArrayCouple2, Dict{Symbol, <:StepRangeLen}};
                       mutate_max_speed::Float64=DEFAULT_MUTATE_MAX_SPEED,
-                      dfunct::Union{Basic, Real}=DEFAULT_DFUNCT,
-                      funct::Union{Basic, Nothing}=DEFAULT_FUNCT,
-                      variable::Union{Basic, Nothing}=DEFAULT_VARIABLE,
+                      dfunct::Union{Symbol, Real}=DEFAULT_DFUNCT,
+                      funct::Union{Symbol, Nothing}=DEFAULT_FUNCT,
+                      variable::Union{Symbol, Nothing}=DEFAULT_VARIABLE,
                       dvariable::Float64=DEFAULT_DVARIABLE,
                       wanted_values::FunctionGraph = DEFAULT_WANTED_VALUES)
     return EqDiffParams(mutate_max_speed, dfunct, funct, variable, dvariable, wanted_values, Dict(params_span))
 end
 
-function EqDiffParams(params_span::Pair{Basic, <:StepRangeLen}...;
+function EqDiffParams(params_span::Pair{Symbol, <:StepRangeLen}...;
                       mutate_max_speed::Float64=DEFAULT_MUTATE_MAX_SPEED,
-                      dfunct::Union{Basic, Real}=DEFAULT_DFUNCT,
-                      funct::Union{Basic, Nothing}=DEFAULT_FUNCT,
-                      variable::Union{Basic, Nothing}=DEFAULT_VARIABLE,
+                      dfunct::Union{Symbol, Real}=DEFAULT_DFUNCT,
+                      funct::Union{Symbol, Nothing}=DEFAULT_FUNCT,
+                      variable::Union{Symbol, Nothing}=DEFAULT_VARIABLE,
                       dvariable::Float64=DEFAULT_DVARIABLE,
                       wanted_values::FunctionGraph = DEFAULT_WANTED_VALUES)
     return EqDiffParams(mutate_max_speed, dfunct, funct, variable, dvariable, wanted_values, Dict(params_span))
 end
 
-Base.getindex(params::EqDiffParams, key::Basic) = params.params_span[key]
+Base.getindex(params::EqDiffParams, key::Symbol) = params.params_span[key]
 
 
 function action(adn::AbstractAdn, custom_params::EqDiffParams):Float64
@@ -140,9 +140,16 @@ function generate_solution(adn::EqDiffAdn, custom_params::EqDiffParams)
     tspan = (Float64(custom_params.wanted_values[1][1]), Float64(custom_params.wanted_values[end][1]))
     f0 = custom_params.wanted_values[1][2]
 
-    funct = subs(custom_params.dfunct, adn.params...)
-    lambdified_funct = lambdify(funct, (custom_params.funct, custom_params.variable))
+    adn_params = Dict([(SymEngine._symbol(key)=>value) for (key, value) in adn.params])
+    variable = SymEngine._symbol(custom_params.variable)
+    dfunct = Basic(custom_params.dfunct)
+    funct = SymEngine._symbol(custom_params.funct)
+
+    dfunct = subs(dfunct, adn_params...)
+
+    lambdified_funct = lambdify(dfunct, (funct, variable))
     correct_funct(f,_,t) = lambdified_funct(f,t)
+
 
     prob = ODEProblem(correct_funct, f0, tspan)
     sol = nothing

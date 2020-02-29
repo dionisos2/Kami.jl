@@ -100,7 +100,7 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
             duration = now()-start_date
             # print_generation_result(adn_score_list, best_score, duration, generation, params, custom_params)
             put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
-            sleep(0.1)
+            sleep(0.01)
 
             adn_score_list = adn_score_list[1:end-to_remove_count]
             best_adn_list = [adn_score[1] for adn_score in adn_score_list]
@@ -113,6 +113,6 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
         end
     end
 
-    channel = Channel(producer, 100)
+    channel = Channel(producer)
     return channel
 end

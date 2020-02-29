@@ -1,12 +1,14 @@
 using Test
 using Kami.FitEqDiff
-using SymEngine
 
-@vars x y
+# @vars x y
+
 const filepath = "dataset/test.csv"
 
 @testset "test fit_equadiff" begin
     @testset "EqDiffAdn and EqDiffParams constructors" begin
+        x = :x
+        y = :y
         adn = EqDiffAdn([(x, 1.0), (y, 2.2)])
         adn2 = EqDiffAdn([(x, 1), (y, 2)])
         adn3 = EqDiffAdn(x=>1.0, y=>2.2)
@@ -28,6 +30,8 @@ const filepath = "dataset/test.csv"
     end
 
     @testset "create_random" begin
+        x = :x
+        y = :y
         params = EqDiffParams(x=>1:0.1:10, y=>-5:0.5:5)
 
         adn = create_random(EqDiffAdn, params)
@@ -37,6 +41,8 @@ const filepath = "dataset/test.csv"
     end
 
     @testset "mutate" begin
+        x = :x
+        y = :y
         params = EqDiffParams(x=>1:eps():10, y=>-5:eps():5, mutate_max_speed=0.5)
 
         for _ in 1:20
@@ -51,6 +57,8 @@ const filepath = "dataset/test.csv"
     end
 
     @testset "create_child" begin
+        x = :x
+        y = :y
         params = EqDiffParams(x=>1:eps():10, y=>-5:eps():5, mutate_max_speed=0.5)
         parents = [create_random(EqDiffAdn, params) for _ in 1:10]
 
@@ -60,10 +68,13 @@ const filepath = "dataset/test.csv"
     end
 
     @testset "generate_solution" begin
-        @vars Y t
+        t = :t
+        x = :x
+        y = :y
+        Y = :Y
 
         # Y(t) = -(x^2*e^(t*x))/(c_1*x^2 + y*e^(t*x)*(t*x - 1))
-        dY = x*Y+t*y*Y^2
+        dY = Symbol("x*Y+t*y*Y^2")
 
         adn = EqDiffAdn(x=>2.0, y=>-5.0)
         params = EqDiffParams(x=>1:eps():10, y=>-5:eps():5, dfunct=dY, funct=Y, variable=t, wanted_values=[(0.0,1.0), (10.0,10.0)])
@@ -82,12 +93,14 @@ const filepath = "dataset/test.csv"
     end
 
     @testset "action" begin
-        @vars Y t x
+        Y = :Y
+        t = :t
+        x = :x
 
         # dY = 2*Y + 3*t →
         # y(t) = C*e^(2*t) - 3*t/2 - 3/4 (C=2)
         y(t) = 2*exp(2*t) - 3*t/2 - 3/4
-        dY = x*Y + 3*t
+        dY = Symbol("x*Y + 3*t")
 
 
         adn_less = EqDiffAdn(x=>1.9)
