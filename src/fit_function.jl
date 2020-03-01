@@ -1,6 +1,7 @@
 module FitFunction
 
 using ..Kami
+using ..Kami.Adn
 Adn = Kami.Adn
 
 const FunctionGraph = Union{Vector{Tuple{Float64, Float64}}, Vector{Vector{Float64}}}

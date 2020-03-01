@@ -1,7 +1,6 @@
 using Test
 using Kami.FitEqDiff
 
-
 const filepath = "dataset/test.csv"
 
 @testset "test fit_eq_diff" begin

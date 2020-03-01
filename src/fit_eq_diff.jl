@@ -1,6 +1,7 @@
 module FitEqDiff
 
 using ..Kami
+using ..Kami.Adn
 Adn = Kami.Adn
 
 using SymEngine
