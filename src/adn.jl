@@ -3,9 +3,12 @@ module Adn
 using Parameters
 using StatsBase
 using Dates
+using ProgressMeter
+using Serialization
 
 export AbstractAdn, Params
-export create_improve_generator, create_random_list, create_mutant_list, create_child_list
+export create_improve_generator, run_session, load_session
+export create_random_list, create_mutant_list, create_child_list
 
 #API export
 export action, create_random, mutate, create_child
@@ -119,6 +122,42 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
 
     channel = Channel(producer)
     return channel
+end
+
+"Run a search, and save results in 'file_path'"
+function run_session(AdnType::Type{<:AbstractAdn}, params::Params, custom_params;
+                     file_path::String="current_session")
+    progress_time = Progress(Millisecond(params.duration_max).value, "Time : ")
+    generator = create_improve_generator(AdnType, params, custom_params)
+
+    serialize(file_path, (params, custom_params))
+
+    for result in generator
+        to_show = [
+            ("generation", result[:generation])
+            ("best score", "$(result[:best_score]))/$(params.score_max)")
+        ]
+        update!(progress_time, Millisecond(result[:duration]).value, showvalues = to_show)
+
+        open(file_path, "a") do file
+            serialize(file, result[:adn_score_list])
+        end
+
+    end
+end
+
+function load_session(file_path="current_session")
+    history = []
+    params, custom_params = nothing, nothing
+
+    open("current_session", "r") do file
+        (params, custom_params) = deserialize(file)
+        while !eof(file)
+            push!(history, deserialize(file))
+        end
+    end
+
+    return (history, params, custom_params)
 end
 
 end

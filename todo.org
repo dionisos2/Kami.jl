@@ -1,7 +1,7 @@
 * DONE create module for fit_equadiff
 * DONE adn for basic functions
-* TODO refactorize IHM and make it quick
-* TODO create gif of function graph
+* DONE refactorize IHM and make it quick
+* TODO create gif of function graphs
 * TODO create gifs of adn values
 * TODO improve get_score
 * TODO improve genetic algorithm
