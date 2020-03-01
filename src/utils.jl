@@ -1,3 +1,5 @@
+export get_score
+
 function get_score(values_sparce, values_dense)
     is, id = 1, 1
     ls, ld = length(values_sparce), length(values_dense)

@@ -1,4 +1,8 @@
-* TODO create module for fit_equadiff
-* TODO adn for basic functions
-* TODO client/server system to be able to stop the main loop
-* TODO improve interface
+* DONE create module for fit_equadiff
+* DONE adn for basic functions
+* TODO refactorize IHM and make it quick
+* TODO create gif of function graph
+* TODO create gifs of adn values
+* TODO improve get_score
+* TODO improve genetic algorithm
+* TODO end

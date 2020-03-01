@@ -9,11 +9,16 @@ using ProgressMeter
 using Dates
 using Serialization
 
+include("adn.jl")
+include("utils.jl")
 include("fit_eq_diff.jl")
+include("fit_function.jl")
 
+using .Adn
 using .FitEqDiff
+using .FitFunction
 
-export main, @enter, show_result
+export main, @enter, show_result, main2
 
 function main()
     menu = RadioMenu(["run_finder",
@@ -27,6 +32,36 @@ function main()
     elseif choice ==2
         show_result()
     end
+end
+
+function main2()
+    funct(x, params) = params[1]*x^2 + params[2]*x + params[3]
+
+    real_funct(x) = 2*x^2 + 4.5*x - 7
+    wanted_values = [(x, real_funct(x)) for x in 0:0.1:10]
+    params_span = [-10:0.1:10, -10:0.1:10, -10:0.1:10]
+
+    params = Params(duration_max=Second(60), adn_count=20)
+    custom_params = FunctionParams(params_span,
+                                   funct=funct,
+                                   wanted_values=wanted_values,
+                                   mutate_max_speed=0.1)
+
+
+    generator = create_improve_generator(FunctionAdn, params, custom_params)
+
+    adn = nothing
+    for result in generator
+        println(result[:generation], " : ", result[:best_score])
+        adn = result[:adn_score_list][1][1]
+    end
+
+    graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
+    plot!(graph, x->adn[1]*x^2+adn[2]*x+adn[3], label="Result")
+
+    display(graph)
+
+    println(adn)
 end
 
 function initialise()

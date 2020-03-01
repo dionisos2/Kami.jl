@@ -1,5 +1,5 @@
 using Test
-using Kami.FitEqDiff
+using Kami.Adn
 using Dates
 
 struct AdnMock <: AbstractAdn
@@ -9,13 +9,13 @@ end
 
 AdnMock() = AdnMock(10, 10)
 
-Kami.action(adn::AdnMock, custom_params)::Float64 = -abs(adn.x*(adn.y+custom_params))
-Kami.create_random(_::Type{AdnMock}, custom_params)::AdnMock = AdnMock(10, custom_params)
-function Kami.mutate(adn::AdnMock, custom_params)
+Kami.Adn.action(adn::AdnMock, custom_params)::Float64 = -abs(adn.x*(adn.y+custom_params))
+Kami.Adn.create_random(_::Type{AdnMock}, custom_params)::AdnMock = AdnMock(10, custom_params)
+function Kami.Adn.mutate(adn::AdnMock, custom_params)
     return AdnMock(adn.x-1, adn.y-1)
 end
 
-function Kami.create_child(parents::Vector{AdnMock}, custom_params=nothing)
+function Kami.Adn.create_child(parents::Vector{AdnMock}, custom_params=nothing)
     return AdnMock(7, 5)
 end
 

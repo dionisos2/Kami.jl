@@ -1,10 +1,14 @@
+module Adn
+
 using Parameters
 using StatsBase
 using Dates
 
 export AbstractAdn, Params
-
 export create_improve_generator, create_random_list, create_mutant_list, create_child_list
+
+#API export
+export action, create_random, mutate, create_child
 
 
 abstract type AbstractAdn end
@@ -115,4 +119,6 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
 
     channel = Channel(producer)
     return channel
+end
+
 end

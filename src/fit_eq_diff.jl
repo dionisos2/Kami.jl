@@ -1,14 +1,15 @@
 module FitEqDiff
 
-include("adn.jl")
-include("utils.jl")
+using ..Kami
+Adn = Kami.Adn
 
 using SymEngine
 using DifferentialEquations
 using Parameters
 
 export EqDiffAdn, EqDiffParams
-export action, create_random, mutate, create_child, generate_solution, get_score
+# export action, create_random, mutate, create_child
+export generate_solution, get_score
 
 """ ! Don’t use :I as a variable name ! """
 struct EqDiffAdn <: AbstractAdn
@@ -74,7 +75,7 @@ end
 Base.getindex(params::EqDiffParams, key::Symbol) = params.params_span[key]
 
 
-function action(adn::AbstractAdn, custom_params::EqDiffParams):Float64
+function Adn.action(adn::AbstractAdn, custom_params::EqDiffParams):Float64
     sol = generate_solution(adn, custom_params)
     wanted_values = custom_params.wanted_values
 
@@ -88,7 +89,7 @@ function action(adn::AbstractAdn, custom_params::EqDiffParams):Float64
     return adn_score
 end
 
-function create_random(::Type{EqDiffAdn}, custom_params::EqDiffParams)::EqDiffAdn
+function Adn.create_random(::Type{EqDiffAdn}, custom_params::EqDiffParams)::EqDiffAdn
     adn = EqDiffAdn()
 
     for param in custom_params.params_span
@@ -99,7 +100,7 @@ function create_random(::Type{EqDiffAdn}, custom_params::EqDiffParams)::EqDiffAd
 end
 
 "Take care of the fact mutation will choose between all 0:eps():10 for a StepRangeLen of 0:0.5:10"
-function mutate(adn::EqDiffAdn, custom_params::EqDiffParams)::EqDiffAdn
+function Adn.mutate(adn::EqDiffAdn, custom_params::EqDiffParams)::EqDiffAdn
     adn_res = EqDiffAdn()
     msp = custom_params.mutate_max_speed
 
@@ -117,7 +118,7 @@ function mutate(adn::EqDiffAdn, custom_params::EqDiffParams)::EqDiffAdn
     return adn_res
 end
 
-function create_child(parents::Vector{EqDiffAdn}, custom_params)::EqDiffAdn
+function Adn.create_child(parents::Vector{EqDiffAdn}, custom_params)::EqDiffAdn
     if isempty(parents)
         throw(DomainError("parents should not be empty"))
     end

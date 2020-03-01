@@ -1,11 +1,10 @@
 using Test
 using Kami.FitEqDiff
 
-# @vars x y
 
 const filepath = "dataset/test.csv"
 
-@testset "test fit_equadiff" begin
+@testset "test fit_eq_diff" begin
     @testset "EqDiffAdn and EqDiffParams constructors" begin
         x = :x
         y = :y
