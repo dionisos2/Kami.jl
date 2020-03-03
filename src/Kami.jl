@@ -79,20 +79,34 @@ function run_eq_diff_finder()
     run_session(EqDiffAdn, params, custom_params)
 end
 
-function show_adn_graph(adn::FunctionAdn, custom_params)
+
+function show_adn_graph(adn::AbstractAdn, custom_params)
+    funct = create_adn_function(adn, custom_params)
     graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
-    plot!(graph, x->custom_params.funct(x, adn.params), label="Result")
+    plot!(graph, funct, label="Result")
 
     display(graph)
 end
 
-function show_adn_graph(adn::EqDiffAdn, custom_params)
-    sol = generate_solution(adn, custom_params)
+create_adn_function(adn::FunctionAdn, custom_params) = x->custom_params.funct(x, adn.params)
+create_adn_function(adn::EqDiffAdn, custom_params) = generate_solution(adn, custom_params)
 
-    graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
-    plot!(graph, sol, label="Result")
 
-    display(graph)
+function create_gif_of_function(adn_list::Vector{<:AbstractAdn}, custom_params)
+    animation = Animation()
+
+    last_adn = nothing
+    for (generation, adn) in enumerate(adn_list)
+        if last_adn != adn
+            funct = create_adn_function(adn, custom_params)
+            graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
+            plot!(graph, funct, label="Result $generation")
+            frame(animation, graph)
+            last_adn = adn
+        end
+    end
+
+    gif(animation, "anim.gif", fps=1)
 end
 
 function show_result()
@@ -102,6 +116,7 @@ function show_result()
                       "show best adn graph",
                       "score history",
                       "history",
+                      "create_gif_of_function",
                       "quit"
                       ]
                      , pagesize=10)
@@ -128,6 +143,9 @@ function show_result()
                 println(map(el->el[1], score_adn_list))
             end
         elseif choice == 5
+            adn_list = [score_adn_list[1][1] for score_adn_list in history]
+            create_gif_of_function(adn_list, custom_params)
+        else
             println("goodbye")
             leaving = true
         end

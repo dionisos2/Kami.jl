@@ -1,5 +1,6 @@
 module FitEqDiff
 
+using AutoHashEquals
 using ..Kami
 using ..Kami.Adn
 Adn = Kami.Adn
@@ -13,7 +14,7 @@ export EqDiffAdn, EqDiffParams
 export generate_solution, get_score
 
 """ ! Don’t use :I as a variable name ! """
-struct EqDiffAdn <: AbstractAdn
+@auto_hash_equals struct EqDiffAdn <: AbstractAdn
     params::Dict{Symbol, Float64}
 end
 
@@ -26,11 +27,12 @@ Base.getindex(adn::EqDiffAdn, key::Symbol) = adn.params[key]
 
 
 const FunctionGraph = Union{Vector{Tuple{Float64, Float64}}, Vector{Vector{Float64}}}
+
 """
 ex : EqDiffParams(x=>0:1:10, y=>-10:esp():5)
 Take care of the fact mutation will choose between all 0:eps():10 for x, and not 0:1:10
 """
-struct EqDiffParams
+@auto_hash_equals struct EqDiffParams
     mutate_max_speed::Float64
 
     "dfunct should be a sym representing a differential equation (ex dI/dt=2*I → dfunct=dI and funct=I)"

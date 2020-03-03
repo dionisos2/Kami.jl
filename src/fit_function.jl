@@ -1,5 +1,6 @@
 module FitFunction
 
+using AutoHashEquals
 using ..Kami
 using ..Kami.Adn
 Adn = Kami.Adn
@@ -9,7 +10,7 @@ const FunctionGraph = Union{Vector{Tuple{Float64, Float64}}, Vector{Vector{Float
 export FunctionParams, FunctionAdn
 # export action, create_random, mutate, create_child
 
-struct FunctionParams
+@auto_hash_equals struct FunctionParams
     funct
     mutate_max_speed::Float64
     wanted_values::FunctionGraph
@@ -37,7 +38,7 @@ end
 
 Base.getindex(params::FunctionParams, key::Int) = params.params_span[key]
 
-struct FunctionAdn <: AbstractAdn
+@auto_hash_equals struct FunctionAdn <: AbstractAdn
     params::Vector{Float64}
 end
 
