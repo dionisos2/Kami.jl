@@ -8,6 +8,7 @@ using TerminalMenus
 using ProgressMeter
 using Dates
 using Serialization
+using Formatting
 
 include("adn.jl")
 include("utils.jl")
@@ -23,7 +24,8 @@ export main, @enter, show_result
 function main()
     menu = RadioMenu(["run_function_finder",
                       "run_eq_diff_finder",
-                      "show_result"],
+                      "show_result",
+                      "quit"],
                      pagesize=10)
 
     choice = request("Choose : ", menu)
@@ -34,6 +36,8 @@ function main()
         run_eq_diff_finder()
     elseif choice == 3
         show_result()
+    else
+        return nothing
     end
 end
 
@@ -92,21 +96,33 @@ create_adn_function(adn::FunctionAdn, custom_params) = x->custom_params.funct(x,
 create_adn_function(adn::EqDiffAdn, custom_params) = generate_solution(adn, custom_params)
 
 
-function create_gif_of_function(adn_list::Vector{<:AbstractAdn}, custom_params)
-    animation = Animation()
+function create_gif_from_result(dir_path="result", gif_path="anim.gif")
+    fps = 1
+    run(`ffmpeg -i $dir_path/plot_00001.png -vf palettegen the_palette.png`)
+    run(`ffmpeg -y -r $fps -f image2 -i $dir_path/plot_%05d.png -i the_palette.png -filter_complex paletteuse $gif_path`)
+    rm("the_palette.png")
+end
+
+function create_pics_of_function(adn_list::Vector{<:AbstractAdn}, custom_params, dir_path="result")
+    if ispath(dir_path)
+        error("'$dir_path' already exists")
+    else
+        mkdir("$dir_path")
+    end
 
     last_adn = nothing
+    number = 1
     for (generation, adn) in enumerate(adn_list)
         if last_adn != adn
             funct = create_adn_function(adn, custom_params)
             graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
             plot!(graph, funct, label="Result $generation")
-            frame(animation, graph)
+            formatted_number = format("{1:0>5}", number)
+            number += 1
+            savefig(graph, "$dir_path/plot_$formatted_number.png")
             last_adn = adn
         end
     end
-
-    gif(animation, "anim.gif", fps=1)
 end
 
 function show_result()
@@ -116,7 +132,8 @@ function show_result()
                       "show best adn graph",
                       "score history",
                       "history",
-                      "create_gif_of_function",
+                      "create pics of function",
+                      "create gif from pics directory",
                       "quit"
                       ]
                      , pagesize=10)
@@ -144,7 +161,21 @@ function show_result()
             end
         elseif choice == 5
             adn_list = [score_adn_list[1][1] for score_adn_list in history]
-            create_gif_of_function(adn_list, custom_params)
+            println("choose directory name (default 'result')")
+            dir_path = readline()
+            if dir_path != ""
+                create_pics_of_function(adn_list, custom_params, dir_path)
+            else
+                create_pics_of_function(adn_list, custom_params)
+            end
+        elseif choice == 6
+            println("choose directory name (default 'result')")
+            dir_path = readline()
+            if dir_path != ""
+                create_gif_from_result(dir_path)
+            else
+                create_gif_from_result()
+            end
         else
             println("goodbye")
             leaving = true
