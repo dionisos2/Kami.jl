@@ -86,6 +86,7 @@ end
 
 function show_adn_graph(adn::AbstractAdn, custom_params)
     funct = create_adn_function(adn, custom_params)
+
     graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
     plot!(graph, funct, label="Result")
 
@@ -110,12 +111,15 @@ function create_pics_of_function(adn_list::Vector{<:AbstractAdn}, custom_params,
         mkdir("$dir_path")
     end
 
+    xlims = (custom_params.wanted_values[1][1], custom_params.wanted_values[end][1])
+    ylims = (custom_params.wanted_values[1][2], custom_params.wanted_values[end][2])
+
     last_adn = nothing
     number = 1
     for (generation, adn) in enumerate(adn_list)
         if last_adn != adn
             funct = create_adn_function(adn, custom_params)
-            graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
+            graph = plot(custom_params.wanted_values, label="Wanted", xlims=xlims, ylims=ylims, ls=:dash, linewidth=3)
             plot!(graph, funct, label="Result $generation")
             formatted_number = format("{1:0>5}", number)
             number += 1
