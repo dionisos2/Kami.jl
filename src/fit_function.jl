@@ -104,7 +104,7 @@ function Adn.create_child(parents::Vector{FunctionAdn}, custom_params)::Function
     return adn_res
 end
 
-function Adn.is_close(adn1::FunctionAdn, adn2::FunctionAdn, custom_params::FunctionParams)
+function Adn.is_close(adn1::FunctionAdn, adn2::FunctionAdn, custom_params::FunctionParams)::Bool
     distance = sum(abs(param1-param2) for (param1,param2) in zip(adn1.params, adn2.params))
     return distance <= custom_params.close_range
 end

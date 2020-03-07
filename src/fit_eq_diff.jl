@@ -37,6 +37,7 @@ Take care of the fact mutation will choose between all 0:eps():10 for x, and not
 """
 @auto_hash_equals struct EqDiffParams
     mutate_max_speed::Float64
+    close_range::Float64
 
     "dfunct should be a sym representing a differential equation (ex dI/dt=2*I → dfunct=dI and funct=I)"
     dfunct::Union{Symbol, Real}
@@ -51,6 +52,7 @@ Take care of the fact mutation will choose between all 0:eps():10 for x, and not
 end
 
 const DEFAULT_MUTATE_MAX_SPEED = 0.5
+const DEFAULT_CLOSE_RANGE = DEFAULT_MUTATE_MAX_SPEED*5
 const DEFAULT_DFUNCT = 1
 const DEFAULT_FUNCT = nothing
 const DEFAULT_VARIABLE = nothing
@@ -60,22 +62,24 @@ const ArrayCouple2 = AbstractArray{Tuple{Symbol, T}} where T<:StepRangeLen
 
 function EqDiffParams(params_span::Union{ArrayCouple2, Dict{Symbol, <:StepRangeLen}};
                       mutate_max_speed::Float64=DEFAULT_MUTATE_MAX_SPEED,
+                      close_range=DEFAULT_CLOSE_RANGE,
                       dfunct::Union{Symbol, Real}=DEFAULT_DFUNCT,
                       funct::Union{Symbol, Nothing}=DEFAULT_FUNCT,
                       variable::Union{Symbol, Nothing}=DEFAULT_VARIABLE,
                       dvariable::Float64=DEFAULT_DVARIABLE,
                       wanted_values::FunctionGraph = DEFAULT_WANTED_VALUES)
-    return EqDiffParams(mutate_max_speed, dfunct, funct, variable, dvariable, wanted_values, Dict(params_span))
+    return EqDiffParams(mutate_max_speed, close_range, dfunct, funct, variable, dvariable, wanted_values, Dict(params_span))
 end
 
 function EqDiffParams(params_span::Pair{Symbol, <:StepRangeLen}...;
                       mutate_max_speed::Float64=DEFAULT_MUTATE_MAX_SPEED,
+                      close_range=DEFAULT_CLOSE_RANGE,
                       dfunct::Union{Symbol, Real}=DEFAULT_DFUNCT,
                       funct::Union{Symbol, Nothing}=DEFAULT_FUNCT,
                       variable::Union{Symbol, Nothing}=DEFAULT_VARIABLE,
                       dvariable::Float64=DEFAULT_DVARIABLE,
                       wanted_values::FunctionGraph = DEFAULT_WANTED_VALUES)
-    return EqDiffParams(mutate_max_speed, dfunct, funct, variable, dvariable, wanted_values, Dict(params_span))
+    return EqDiffParams(mutate_max_speed, close_range, dfunct, funct, variable, dvariable, wanted_values, Dict(params_span))
 end
 
 Base.getindex(params::EqDiffParams, key::Symbol) = params.params_span[key]
@@ -175,9 +179,9 @@ function generate_solution(adn::EqDiffAdn, custom_params::EqDiffParams)
     return sol
 end
 
-# function Adn.is_close(adn1::EqDiffAdn, adn2::EqDiffAdn, custom_params::EqDiffParams)
-#     distance = sum(abs(param1-param2) for (param1,param2) in zip(adn1.params, adn2.params))
-#     return distance <= custom_params.close_range
-# end
+function Adn.is_close(adn1::EqDiffAdn, adn2::EqDiffAdn, custom_params::EqDiffParams)::Bool
+    distance = sum(abs(adn1[key]-adn2[key]) for key in keys(adn1.params))
+    return distance <= custom_params.close_range
+end
 
 end

@@ -77,7 +77,7 @@ function run_eq_diff_finder()
         # (n, 1:eps():2)
     ];
 
-    params = Params(duration_max=Second(50), adn_count=10)
+    params = Params(duration_max=Second(60*5))
     custom_params = EqDiffParams(params_span, dfunct=dY, funct=Y, variable=t, dvariable=0.5, wanted_values=wanted_values, mutate_max_speed=0.001)
 
     run_session(EqDiffAdn, params, custom_params)

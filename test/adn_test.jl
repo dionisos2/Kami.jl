@@ -18,7 +18,8 @@ end
 function Kami.Adn.create_child(parents::Vector{AdnMock}, custom_params=nothing)
     return AdnMock(7, 5)
 end
-Kami.Adn.is_close(adn1::AdnMock, adn2::AdnMock) = false
+
+Kami.Adn.is_close(adn1::AdnMock, adn2::AdnMock, custom_params)::Bool = false
 
 @testset "test AbstractAdn" begin
     @testset "test Adn API" begin
