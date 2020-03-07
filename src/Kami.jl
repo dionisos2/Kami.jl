@@ -48,7 +48,7 @@ function run_function_finder()
     wanted_values = [(x, real_funct(x)) for x in 0:0.1:10]
     params_span = [-10:0.1:10, -10:0.1:10, -10:0.1:10]
 
-    params = Params(duration_max=Second(60), adn_count=20, score_max=-1.)
+    params = Params(duration_max=Second(60), score_max=-1.)
     custom_params = FunctionParams(params_span,
                                    funct=funct,
                                    wanted_values=wanted_values,
@@ -191,6 +191,8 @@ function create_pics_of_function(adn_list::Vector{<:AbstractAdn}, custom_params,
     xlims = (custom_params.wanted_values[1][1], custom_params.wanted_values[end][1])
     ylims = (custom_params.wanted_values[1][2], custom_params.wanted_values[end][2])
 
+    progress_time = Progress(length(history), "Time : ")
+
     last_adn = nothing
     number = 1
     for (generation, adn) in enumerate(adn_list)
@@ -203,6 +205,7 @@ function create_pics_of_function(adn_list::Vector{<:AbstractAdn}, custom_params,
             savefig(graph, "$dir_path/plot_$formatted_number.png")
             last_adn = adn
         end
+        next!(progress_time)
     end
 end
 

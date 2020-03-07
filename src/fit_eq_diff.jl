@@ -175,5 +175,9 @@ function generate_solution(adn::EqDiffAdn, custom_params::EqDiffParams)
     return sol
 end
 
+# function Adn.is_close(adn1::EqDiffAdn, adn2::EqDiffAdn, custom_params::EqDiffParams)
+#     distance = sum(abs(param1-param2) for (param1,param2) in zip(adn1.params, adn2.params))
+#     return distance <= custom_params.close_range
+# end
 
 end

@@ -14,26 +14,30 @@ export FunctionParams, FunctionAdn
     funct
     mutate_max_speed::Float64
     wanted_values::FunctionGraph
+    close_range::Float64
     params_span::Vector{StepRangeLen}
 end
 
 const DEFAULT_FUNCT = x->x
 const DEFAULT_MUTATE_MAX_SPEED = 0.5
+const DEFAULT_CLOSE_RANGE = DEFAULT_MUTATE_MAX_SPEED*5
 const DEFAULT_WANTED_VALUES = Tuple{Float64,Float64}[]
 
 
 function FunctionParams(params_span::Vector{<:StepRangeLen};
                         funct=DEFAULT_FUNCT,
                         mutate_max_speed=DEFAULT_MUTATE_MAX_SPEED,
+                        close_range=DEFAULT_CLOSE_RANGE,
                         wanted_values=DEFAULT_WANTED_VALUES)
-    return FunctionParams(funct, mutate_max_speed, wanted_values, params_span)
+    return FunctionParams(funct, mutate_max_speed, wanted_values, close_range, params_span)
 end
 
 function FunctionParams(params_span::StepRangeLen...;
                         funct=DEFAULT_FUNCT,
                         mutate_max_speed=DEFAULT_MUTATE_MAX_SPEED,
+                        close_range=DEFAULT_CLOSE_RANGE,
                         wanted_values=DEFAULT_WANTED_VALUES)
-    return FunctionParams(funct, mutate_max_speed, wanted_values, collect(params_span))
+    return FunctionParams(funct, mutate_max_speed, wanted_values, close_range, collect(params_span))
 end
 
 Base.getindex(params::FunctionParams, key::Int) = params.params_span[key]
@@ -98,6 +102,11 @@ function Adn.create_child(parents::Vector{FunctionAdn}, custom_params)::Function
     end
 
     return adn_res
+end
+
+function Adn.is_close(adn1::FunctionAdn, adn2::FunctionAdn, custom_params::FunctionParams)
+    distance = sum(abs(param1-param2) for (param1,param2) in zip(adn1.params, adn2.params))
+    return distance <= custom_params.close_range
 end
 
 end

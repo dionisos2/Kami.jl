@@ -20,12 +20,25 @@ abstract type AbstractAdn end
 @with_kw struct Params
     score_max::Float64 = 0
     duration_max::Period = Second(10)
-    "number of adns in each generation"
-    adn_count::Int64 = 20
+
+    species_count::Int = 5
+    adn_by_species::Int = 10
+    stagnation_max::Int = 10
+
     random_ratio::Float64 = 0.1
     child_ratio::Float64 = 0.1
     mutant_ratio::Float64 = 0.2
+
 end
+
+mutable struct Species{AdnType<: AbstractAdn}
+    adn_score_list::Vector{Tuple{AdnType, Float64}}
+    params::Params
+    custom_params
+    stagnation_count::Int
+end
+
+Species(adn_score_list::Vector{Tuple{AdnType, Float64}}, params::Params, custom_params) where AdnType<:AbstractAdn = Species{AdnType}(adn_score_list, params, custom_params, 0)
 
 # ---------- API start ----------
 
@@ -43,6 +56,9 @@ action(adn::AbstractAdn, custom_params)::Float64 = throw(MissingException("actio
 
 "Create a child adn from parents"
 (create_child(parents::Vector{T}, custom_params)::T) where T<:AbstractAdn = throw(MissingException("create_child should be defined for concrete type of AbstractAdn"))
+
+"Check if adn1 and adn2 are close in term of their inherents properties"
+is_close(adn1::AbstractAdn, adn2::AbstractAdn, custom_params)::Bool= throw(MissingException("is_close should be defined for concrete type of AbstractAdn"))
 
 "Whatever you want to show at each generation"
 function print_generation_result(adn_score_list::Vector{Tuple{T,Float64}}, best_score::Float64, duration::Period, generation::Int, params::Params, custom_params) where T<:AbstractAdn
@@ -73,63 +89,126 @@ function create_child_list(adn_list::Vector{<:AbstractAdn}, count, custom_params
     return [create_child(adn_list, custom_params) for _ in 1:count]
 end
 
-# function create_improve_generator2()
-#     while ok
-#         for species in species_list
-#             improve(species)
-#         end
+function create_random_species_list(AdnType::Type{<:AbstractAdn}, species_count::Int, params::Params, custom_params)
+    return [create_random_species(AdnType, params, custom_params) for _ in 1:species_count]
+end
 
-#         delete_close_species!(species_list)
-#         delete_bad_stagnant_species!(species_list)
+function create_random_species(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
+    adn_list = create_random_list(AdnType, params.adn_by_species, custom_params)
 
-#         species_to_add = species_count - length(species_list)
-#         new_species = create_new_species_list(species_to_add)
-#         append!(species_list, new_species)
+    adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
+    sort!(adn_score_list, by=el->el[2], rev=true)
 
-#         adn_score_list = map(get_adn_score_list, species_list)
-#         sort!(adn_score_list)
-#     end
-# end
+    return Species(adn_score_list, params, custom_params)
+end
 
-"Improve a list of adn, until we get something bigger than score_max or until duration_max passed"
-function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
-    @unpack score_max, duration_max, adn_count, random_ratio, child_ratio, mutant_ratio = params
-
-    adn_list = create_random_list(AdnType, adn_count, custom_params)
+function improve!(species::Species{AdnType}) where AdnType<:AbstractAdn
+    adn_count = species.params.adn_by_species
+    mutant_ratio = species.params.mutant_ratio
+    child_ratio = species.params.child_ratio
+    random_ratio = species.params.random_ratio
     mutant_count = floor(Int, adn_count*mutant_ratio)
     child_count = floor(Int, adn_count*child_ratio)
     random_count = floor(Int, adn_count*random_ratio)
-
     to_remove_count = mutant_count + child_count + random_count
-
-
     if to_remove_count >= adn_count
         throw(DomainError("mutant_ratio + child_ratio + random_ratio > 1"))
     end
+
+    best_score = species.adn_score_list[1][2]
+    species.adn_score_list = species.adn_score_list[1:end-to_remove_count]
+    best_adn_list = [adn_score[1] for adn_score in species.adn_score_list]
+
+    custom_params = species.custom_params
+    new_random_list = create_random_list(AdnType, random_count, custom_params)
+    new_child_list = create_child_list(best_adn_list, child_count, custom_params)
+    new_mutant_list = create_mutant_list(best_adn_list, mutant_count, custom_params)
+    new_adn_list = [new_random_list; new_child_list; new_mutant_list]
+
+    new_adn_score_list = [(adn, action(adn, custom_params)) for adn in new_adn_list]
+    append!(species.adn_score_list, new_adn_score_list)
+    sort!(species.adn_score_list, by=el->el[2], rev=true)
+
+    new_best = species.adn_score_list[1][2]
+    if new_best == best_score
+        species.stagnation_count += 1
+    end
+end
+
+function delete_close_species(species_list::Vector{SpeciesType}) where SpeciesType<:Species
+    new_species_list = SpeciesType[]
+    if length(species_list)==0
+        error("delete_close_species : species_list should not be empty")
+    end
+
+    custom_params = species_list[1].custom_params
+
+    for species1 in species_list
+        if all(is_better(species1, species2) || !is_close(species1, species2) for species2 in species_list if species1!=species2)
+            push!(new_species_list, species1)
+        end
+    end
+
+    return new_species_list
+end
+
+
+function is_close(species1::Species, species2::Species)
+    return is_close(species1.adn_score_list[1][1], species2.adn_score_list[1][1], species1.custom_params)
+end
+
+function is_better(species1::Species, species2::Species)
+    return species1.adn_score_list[1][2] > species2.adn_score_list[1][2]
+end
+
+function delete_bad_stagnant_species(species_list::Vector{<:Species})
+    if length(species_list)==0
+        error("delete_bad_stagnant_species : species_list should not be empty")
+    end
+
+    max_st = species_list[1].params.stagnation_max
+
+    middle = div(length(species_list), 2)
+    species_list = sort(species_list, lt=is_better)
+
+    bad_species = filter(species->species.stagnation_count < max_st, species_list[middle+1:end])
+    return [species_list[1:middle]; bad_species]
+end
+
+function get_adn_score_list(species_list::Vector{Species{AdnType}}) where AdnType <: AbstractAdn
+    adn_score_list = Tuple{AdnType, Float64}[]
+
+    for species in species_list
+        append!(adn_score_list, species.adn_score_list)
+    end
+    return adn_score_list
+end
+
+"Improve a list of adn, until we get something bigger than score_max or until duration_max passed"
+function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
+    @unpack score_max, duration_max, species_count = params
 
     best_score = -Inf
     start_date = now()
     duration = now()-start_date
     generation = 1
 
-
     function producer(c::Channel)
-        adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
-        sort!(adn_score_list, by=el->el[2], rev=true)
-        best_score = adn_score_list[1][2]
-        put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
+        species_list = create_random_species_list(AdnType, species_count, params, custom_params)
 
         while ((best_score < score_max) && (duration < duration_max))
-            adn_score_list = adn_score_list[1:end-to_remove_count]
-            best_adn_list = [adn_score[1] for adn_score in adn_score_list]
+            for species in species_list
+                improve!(species)
+            end
 
-            new_random_list = create_random_list(AdnType, random_count, custom_params)
-            new_child_list = create_child_list(best_adn_list, child_count, custom_params)
-            new_mutant_list = create_mutant_list(best_adn_list, mutant_count, custom_params)
-            new_adn_list = [new_random_list; new_child_list; new_mutant_list]
+            species_list = delete_close_species(species_list)
+            species_list = delete_bad_stagnant_species(species_list)
 
-            new_adn_score_list = [(adn, action(adn, custom_params)) for adn in new_adn_list]
-            adn_score_list = [adn_score_list; new_adn_score_list]
+            species_to_add = species_count - length(species_list)
+            new_species = create_random_species_list(AdnType, species_to_add, params, custom_params)
+            append!(species_list, new_species)
+
+            adn_score_list = get_adn_score_list(species_list)
             sort!(adn_score_list, by=el->el[2], rev=true)
 
             generation += 1
@@ -140,9 +219,9 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
         end
     end
 
-    channel = Channel(producer)
-    return channel
+    return Channel(producer)
 end
+
 
 "Run a search, and save results in 'file_path'"
 function run_session(AdnType::Type{<:AbstractAdn}, params::Params, custom_params;
