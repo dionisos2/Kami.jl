@@ -147,7 +147,7 @@ function run_session(AdnType::Type{<:AbstractAdn}, params::Params, custom_params
 end
 
 function load_session(file_path="current_session")
-    history = []
+    history = Vector{Tuple{AbstractAdn, Float64}}[]
     params, custom_params = nothing, nothing
 
     open("current_session", "r") do file

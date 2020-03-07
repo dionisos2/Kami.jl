@@ -16,13 +16,16 @@ export generate_solution, get_score
 """ ! Don’t use :I as a variable name ! """
 @auto_hash_equals struct EqDiffAdn <: AbstractAdn
     params::Dict{Symbol, Float64}
+    type::String
 end
 
 
 #AbstractArray{Tuple{Symbol, T} where T<:Real} invalide because Array{Tuple{Int,Float64},1} <: AbstractArray{Tuple{Int, <:Real}}
 const ArrayCouple1 = AbstractArray{Tuple{Symbol, T}} where T<:Real
-EqDiffAdn(params::ArrayCouple1) = EqDiffAdn(Dict{Symbol, Float64}(params))
-EqDiffAdn(params::Pair{Symbol, <:Real}...) = EqDiffAdn(Dict{Symbol, Float64}(params))
+
+EqDiffAdn(params::Dict{Symbol, Float64}; type="default") = EqDiffAdn(params, type)
+EqDiffAdn(params::ArrayCouple1; type="default") = EqDiffAdn(Dict{Symbol, Float64}(params), type)
+EqDiffAdn(params::Pair{Symbol, <:Real}...; type="default") = EqDiffAdn(Dict{Symbol, Float64}(params), type)
 Base.getindex(adn::EqDiffAdn, key::Symbol) = adn.params[key]
 
 
@@ -93,7 +96,7 @@ function Adn.action(adn::AbstractAdn, custom_params::EqDiffParams):Float64
 end
 
 function Adn.create_random(::Type{EqDiffAdn}, custom_params::EqDiffParams)::EqDiffAdn
-    adn = EqDiffAdn()
+    adn = EqDiffAdn(;type="random")
 
     for param in custom_params.params_span
         adn.params[param.first] = rand(param.second)
@@ -104,7 +107,7 @@ end
 
 "Take care of the fact mutation will choose between all 0:eps():10 for a StepRangeLen of 0:0.5:10"
 function Adn.mutate(adn::EqDiffAdn, custom_params::EqDiffParams)::EqDiffAdn
-    adn_res = EqDiffAdn()
+    adn_res = EqDiffAdn(;type="mutant")
     msp = custom_params.mutate_max_speed
 
     for param in adn.params
@@ -126,7 +129,7 @@ function Adn.create_child(parents::Vector{EqDiffAdn}, custom_params)::EqDiffAdn
         throw(DomainError("parents should not be empty"))
     end
 
-    adn_res = EqDiffAdn()
+    adn_res = EqDiffAdn(;type="child")
     len = length(parents)
 
     for param in custom_params.params_span

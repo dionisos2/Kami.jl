@@ -40,12 +40,16 @@ Base.getindex(params::FunctionParams, key::Int) = params.params_span[key]
 
 @auto_hash_equals struct FunctionAdn <: AbstractAdn
     params::Vector{Float64}
+    type::String
 end
 
-FunctionAdn(params::Real...) = FunctionAdn(collect(params))
+FunctionAdn(params::Vector{<:Real}; type="default") = FunctionAdn(params, type)
+
+FunctionAdn(params::Real...; type="default") = FunctionAdn(collect(params), type)
 
 Base.getindex(adn::FunctionAdn, key::Int) = adn.params[key]
-Base.copy(adn::FunctionAdn) = FunctionAdn(copy(adn.params))
+Base.copy(adn::FunctionAdn) = FunctionAdn(Base.copy(adn.params), adn.type)
+copy(adn::FunctionAdn, type::String) = FunctionAdn(Base.copy(adn.params), type)
 
 function Adn.action(adn::FunctionAdn, custom_params::FunctionParams)::Float64
     funct(x) = custom_params.funct(x, adn.params)
@@ -60,11 +64,11 @@ function Adn.create_random(_::Type{FunctionAdn}, custom_params::FunctionParams):
         push!(params, rand(param_span))
     end
 
-    return FunctionAdn(params)
+    return FunctionAdn(params, type="random")
 end
 
 function Adn.mutate(adn::FunctionAdn, custom_params::FunctionParams)::FunctionAdn
-    adn_res = copy(adn)
+    adn_res = copy(adn, "mutant")
     msp = custom_params.mutate_max_speed
 
     for (index, param) in enumerate(adn.params)
@@ -86,7 +90,7 @@ function Adn.create_child(parents::Vector{FunctionAdn}, custom_params)::Function
         throw(DomainError("parents should not be empty"))
     end
 
-    adn_res = copy(parents[1])
+    adn_res = copy(parents[1], "child")
     len = length(parents)
 
     for (index, param) in enumerate(custom_params.params_span)

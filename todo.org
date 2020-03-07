@@ -2,7 +2,7 @@
 * DONE adn for basic functions
 * DONE refactorize IHM and make it quick
 * DONE create gif of function graphs
-* TODO create gifs of adn values
+* DONE create gifs of adn params values
 * TODO improve get_score
 * TODO improve genetic algorithm
 * TODO end

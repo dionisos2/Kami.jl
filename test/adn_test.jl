@@ -30,7 +30,7 @@ end
     end
 
     @testset "create_improve_generator" begin
-        params = Kami.Params(adn_count = 10, duration_max=Second(1))
+        params = Kami.Params(adn_count = 10, duration_max=Second(2))
         generator = create_improve_generator(AdnMock, params, -4)
         adn = nothing
         for result in generator
