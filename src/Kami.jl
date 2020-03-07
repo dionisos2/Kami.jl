@@ -161,6 +161,8 @@ function create_pics_of_history(history::Vector{Vector{Tuple{AbstractAdn, Float6
         mkdir("$dir_path")
     end
 
+    progress_time = Progress(length(history), "Time : ")
+
     last_best_score = -Inf
     number = 1
     for (generation, adn_score_list) in enumerate(history)
@@ -175,6 +177,7 @@ function create_pics_of_history(history::Vector{Vector{Tuple{AbstractAdn, Float6
             last_best_score = best_score
             number += 1
         end
+        next!(progress_time)
     end
 end
 

@@ -73,6 +73,24 @@ function create_child_list(adn_list::Vector{<:AbstractAdn}, count, custom_params
     return [create_child(adn_list, custom_params) for _ in 1:count]
 end
 
+# function create_improve_generator2()
+#     while ok
+#         for species in species_list
+#             improve(species)
+#         end
+
+#         delete_close_species!(species_list)
+#         delete_bad_stagnant_species!(species_list)
+
+#         species_to_add = species_count - length(species_list)
+#         new_species = create_new_species_list(species_to_add)
+#         append!(species_list, new_species)
+
+#         adn_score_list = map(get_adn_score_list, species_list)
+#         sort!(adn_score_list)
+#     end
+# end
+
 "Improve a list of adn, until we get something bigger than score_max or until duration_max passed"
 function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
     @unpack score_max, duration_max, adn_count, random_ratio, child_ratio, mutant_ratio = params
@@ -92,31 +110,33 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
     best_score = -Inf
     start_date = now()
     duration = now()-start_date
-    generation = 0
+    generation = 1
 
 
     function producer(c::Channel)
+        adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
+        sort!(adn_score_list, by=el->el[2], rev=true)
+        best_score = adn_score_list[1][2]
+        put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
+
         while ((best_score < score_max) && (duration < duration_max))
-            action(adn_list[1], custom_params) # TODO:to remove
-
-            adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
-            sort!(adn_score_list, by=el->el[2], rev=true)
-
-            generation += 1
-            best_score = adn_score_list[1][2]
-            duration = now()-start_date
-            # print_generation_result(adn_score_list, best_score, duration, generation, params, custom_params)
-            put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
-            sleep(0.01)
-
             adn_score_list = adn_score_list[1:end-to_remove_count]
             best_adn_list = [adn_score[1] for adn_score in adn_score_list]
 
             new_random_list = create_random_list(AdnType, random_count, custom_params)
             new_child_list = create_child_list(best_adn_list, child_count, custom_params)
             new_mutant_list = create_mutant_list(best_adn_list, mutant_count, custom_params)
+            new_adn_list = [new_random_list; new_child_list; new_mutant_list]
 
-            adn_list = [best_adn_list; new_random_list; new_child_list; new_mutant_list]
+            new_adn_score_list = [(adn, action(adn, custom_params)) for adn in new_adn_list]
+            adn_score_list = [adn_score_list; new_adn_score_list]
+            sort!(adn_score_list, by=el->el[2], rev=true)
+
+            generation += 1
+            best_score = adn_score_list[1][2]
+            duration = now()-start_date
+            put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
+            sleep(0.01)
         end
     end
 
