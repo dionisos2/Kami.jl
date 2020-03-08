@@ -6,9 +6,14 @@ using Dates
 using ProgressMeter
 using Serialization
 
-export AbstractAdn, Params
-export create_improve_generator, run_session, load_session
+export AbstractAdn, Params, Species
+
+export improve!, create_improve_generator, run_session, load_session
 export create_random_list, create_mutant_list, create_child_list
+
+export create_random_species, create_random_species_list
+export delete_close_species, delete_bad_stagnant_species
+export get_best_adn, get_best_score
 
 #API export
 export action, create_random, mutate, create_child
@@ -27,7 +32,7 @@ abstract type AbstractAdn end
 
     random_ratio::Float64 = 0.1
     child_ratio::Float64 = 0.1
-    mutant_ratio::Float64 = 0.2
+    mutant_ratio::Float64 = 0.4
 
 end
 
@@ -39,6 +44,21 @@ mutable struct Species{AdnType<: AbstractAdn}
 end
 
 Species(adn_score_list::Vector{Tuple{AdnType, Float64}}, params::Params, custom_params) where AdnType<:AbstractAdn = Species{AdnType}(adn_score_list, params, custom_params, 0)
+
+function Species(adn_list::Vector{AdnType},
+                 params::Params, custom_params) where AdnType<:AbstractAdn
+    adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
+    sort!(adn_score_list, by=el->el[2], rev=true)
+    return Species{AdnType}(adn_score_list, params, custom_params, 0)
+end
+
+function Base.copy(species::Species)
+    adn_score_list = deepcopy(species.adn_score_list)
+    params = species.params
+    custom_params = species.custom_params
+    stagnation_count = species.stagnation_count
+    return Species(adn_score_list, params, custom_params, stagnation_count)
+end
 
 # ---------- API start ----------
 
@@ -95,11 +115,7 @@ end
 
 function create_random_species(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
     adn_list = create_random_list(AdnType, params.adn_by_species, custom_params)
-
-    adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
-    sort!(adn_score_list, by=el->el[2], rev=true)
-
-    return Species(adn_score_list, params, custom_params)
+    return Species(adn_list, params, custom_params)
 end
 
 function improve!(species::Species{AdnType}) where AdnType<:AbstractAdn
@@ -107,15 +123,15 @@ function improve!(species::Species{AdnType}) where AdnType<:AbstractAdn
     mutant_ratio = species.params.mutant_ratio
     child_ratio = species.params.child_ratio
     random_ratio = species.params.random_ratio
-    mutant_count = floor(Int, adn_count*mutant_ratio)
-    child_count = floor(Int, adn_count*child_ratio)
-    random_count = floor(Int, adn_count*random_ratio)
+    mutant_count = round(Int, adn_count*mutant_ratio)
+    child_count = round(Int, adn_count*child_ratio)
+    random_count = round(Int, adn_count*random_ratio)
     to_remove_count = mutant_count + child_count + random_count
     if to_remove_count >= adn_count
         throw(DomainError("mutant_ratio + child_ratio + random_ratio > 1"))
     end
 
-    best_score = species.adn_score_list[1][2]
+    best_score = get_best_score(species)
     species.adn_score_list = species.adn_score_list[1:end-to_remove_count]
     best_adn_list = [adn_score[1] for adn_score in species.adn_score_list]
 
@@ -129,7 +145,7 @@ function improve!(species::Species{AdnType}) where AdnType<:AbstractAdn
     append!(species.adn_score_list, new_adn_score_list)
     sort!(species.adn_score_list, by=el->el[2], rev=true)
 
-    new_best = species.adn_score_list[1][2]
+    new_best = get_best_score(species)
     if new_best == best_score
         species.stagnation_count += 1
     end
@@ -149,16 +165,17 @@ function delete_close_species(species_list::Vector{SpeciesType}) where SpeciesTy
         end
     end
 
+    sort!(new_species_list, lt=is_better)
     return new_species_list
 end
 
 
 function is_close(species1::Species, species2::Species)
-    return is_close(species1.adn_score_list[1][1], species2.adn_score_list[1][1], species1.custom_params)
+    return is_close(get_best_adn(species1), get_best_adn(species2), species1.custom_params)
 end
 
 function is_better(species1::Species, species2::Species)
-    return species1.adn_score_list[1][2] > species2.adn_score_list[1][2]
+    return get_best_score(species1) >= get_best_score(species2)
 end
 
 function delete_bad_stagnant_species(species_list::Vector{<:Species})
@@ -181,8 +198,15 @@ function get_adn_score_list(species_list::Vector{Species{AdnType}}) where AdnTyp
     for species in species_list
         append!(adn_score_list, species.adn_score_list)
     end
+    sort!(adn_score_list, by=el->el[2], rev=true)
     return adn_score_list
 end
+
+get_best_score(adn_score_list::Vector{Tuple{AdnType, Float64}}) where AdnType<:AbstractAdn = adn_score_list[1][2]
+get_best_adn(adn_score_list::Vector{Tuple{AdnType, Float64}}) where AdnType<:AbstractAdn = adn_score_list[1][1]
+
+get_best_score(species::Species) = get_best_score(species.adn_score_list)
+get_best_adn(species::Species) = get_best_adn(species.adn_score_list)
 
 "Improve a list of adn, until we get something bigger than score_max or until duration_max passed"
 function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
@@ -195,6 +219,10 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
 
     function producer(c::Channel)
         species_list = create_random_species_list(AdnType, species_count, params, custom_params)
+        adn_score_list = get_adn_score_list(species_list)
+        best_score = get_best_score(adn_score_list)
+
+        put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
 
         while ((best_score < score_max) && (duration < duration_max))
             for species in species_list
@@ -209,10 +237,9 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
             append!(species_list, new_species)
 
             adn_score_list = get_adn_score_list(species_list)
-            sort!(adn_score_list, by=el->el[2], rev=true)
 
             generation += 1
-            best_score = adn_score_list[1][2]
+            best_score = get_best_score(adn_score_list)
             duration = now()-start_date
             put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
             sleep(0.01)

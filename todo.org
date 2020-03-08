@@ -3,9 +3,12 @@
 * DONE refactorize IHM and make it quick
 * DONE create gif of function graphs
 * DONE create gifs of adn params values
-* TODO improve genetic algorithm
+* DONE try to find roots of polynome
+* DONE improve genetic algorithm
+* DONE test new species system
+* TODO add colors to species
+* TODO improve mutation system
 * TODO add graph in pics of adn value
 * TODO make interface more interactive
-* TODO try to find roots of polynome
 * TODO improve readme
 * TODO end
