@@ -98,9 +98,9 @@ create_adn_function(adn::EqDiffAdn, custom_params) = generate_solution(adn, cust
 
 
 function create_gif_from_result(dir_path="result", gif_path="anim.gif")
-    fps = 1
-    run(`ffmpeg -i $dir_path/plot_00001.png -vf palettegen the_palette.png`)
-    run(`ffmpeg -y -r $fps -f image2 -i $dir_path/plot_%05d.png -i the_palette.png -filter_complex paletteuse $gif_path`)
+    fps = 10
+    run(`ffmpeg -i $dir_path/adn_plot_00001.png -vf palettegen the_palette.png`)
+    run(`ffmpeg -y -r $fps -f image2 -i $dir_path/adn_plot_%05d.png -i the_palette.png -filter_complex paletteuse $gif_path`)
     rm("the_palette.png")
 end
 
@@ -161,6 +161,10 @@ function create_pics_of_history(history::Vector{Vector{Tuple{AbstractAdn, Float6
         mkdir("$dir_path")
     end
 
+    xlims = (custom_params.wanted_values[1][1], custom_params.wanted_values[end][1])
+    yvalues = map(el->el[2], custom_params.wanted_values)
+    ylims = (minimum(yvalues), maximum(yvalues))
+
     progress_time = Progress(length(history), "Time : ")
 
     last_best_score = -Inf
@@ -171,7 +175,13 @@ function create_pics_of_history(history::Vector{Vector{Tuple{AbstractAdn, Float6
             adn_list = map(el->el[1], adn_score_list)
             title = plot(title = "$generation : $best_score", grid = false, showaxis = false)
             adn_plot_list = create_pics_of_adn_list(adn_list, custom_params)
-            result = plot(title, plot(adn_plot_list...), layout=@layout([a{0.02h}; b{0.98h}]))
+
+            adn = get_best_adn(adn_score_list)
+            funct = create_adn_function(adn, custom_params)
+            graph = plot(custom_params.wanted_values, label="Wanted", xlims=xlims, ylims=ylims, ls=:dash, linewidth=3)
+            plot!(graph, funct, label="Result $generation")
+
+            result = plot(title, plot(graph, adn_plot_list...), layout=@layout([a{0.02h}; b{0.98h}]))
             formatted_number = format("{1:0>5}", number)
             savefig(result, "$dir_path/adn_plot_$formatted_number.png")
             last_best_score = best_score
