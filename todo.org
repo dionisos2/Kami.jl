@@ -7,8 +7,8 @@
 * DONE improve genetic algorithm
 * DONE test new species system
 * DONE add colors to species
+* DONE add graph in pics of adn value
 * TODO improve mutation system
-* TODO add graph in pics of adn value
 * TODO make interface more interactive
 * TODO improve readme
 * TODO end
