@@ -6,7 +6,7 @@
 * DONE try to find roots of polynome
 * DONE improve genetic algorithm
 * DONE test new species system
-* TODO add colors to species
+* DONE add colors to species
 * TODO improve mutation system
 * TODO add graph in pics of adn value
 * TODO make interface more interactive

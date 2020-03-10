@@ -13,7 +13,7 @@ export create_random_list, create_mutant_list, create_child_list
 
 export create_random_species, create_random_species_list
 export delete_close_species, delete_bad_stagnant_species
-export get_best_adn, get_best_score
+export get_best_adn, get_best_score, get_adn_score_list, is_better
 
 #API export
 export action, create_random, mutate, create_child
@@ -208,6 +208,29 @@ get_best_adn(adn_score_list::Vector{Tuple{AdnType, Float64}}) where AdnType<:Abs
 get_best_score(species::Species) = get_best_score(species.adn_score_list)
 get_best_adn(species::Species) = get_best_adn(species.adn_score_list)
 
+get_best_score(species_list::Vector{<:Species}) = get_best_score(get_adn_score_list(species_list))
+get_best_adn(species_list::Vector{<:Species}) = get_best_adn(get_adn_score_list(species_list))
+
+
+get_best_score(history::Vector{Vector{Species{AdnType}}}) where AdnType<:AbstractAdn = get_best_adn_score(history)[2]
+get_best_adn(history::Vector{Vector{Species{AdnType}}}) where AdnType<:AbstractAdn = get_best_adn_score(history)[1]
+
+
+function get_best_adn_score(history::Vector{Vector{Species{AdnType}}}) where AdnType<:AbstractAdn
+    best_score = -Inf
+    best_adn = nothing
+
+    for species_list in history
+        current_score = get_best_score(species_list)
+        if current_score >= best_score
+            best_score = current_score
+            best_adn = get_best_adn(species_list)
+        end
+    end
+
+    return (best_adn, best_score)
+end
+
 "Improve a list of adn, until we get something bigger than score_max or until duration_max passed"
 function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
     @unpack score_max, duration_max, species_count = params
@@ -222,7 +245,7 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
         adn_score_list = get_adn_score_list(species_list)
         best_score = get_best_score(adn_score_list)
 
-        put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
+        put!(c, (species_list=species_list, duration=duration, params=params, custom_params=custom_params))
 
         while ((best_score < score_max) && (duration < duration_max))
             for species in species_list
@@ -241,7 +264,7 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
             generation += 1
             best_score = get_best_score(adn_score_list)
             duration = now()-start_date
-            put!(c, (adn_score_list=adn_score_list, best_score=best_score, duration=duration, generation=generation, params=params, custom_params=custom_params))
+            put!(c, (species_list=species_list, duration=duration, params=params, custom_params=custom_params))
             sleep(0.01)
         end
     end
@@ -258,22 +281,23 @@ function run_session(AdnType::Type{<:AbstractAdn}, params::Params, custom_params
 
     serialize(file_path, (params, custom_params))
 
-    for result in generator
+    for (generation, result) in enumerate(generator)
+        best_score = get_best_score(result[:species_list])
         to_show = [
-            ("generation", result[:generation])
-            ("best score", "$(result[:best_score]))/$(params.score_max)")
+            ("generation", generation)
+            ("best score", "$best_score/$(params.score_max)")
         ]
         update!(progress_time, Millisecond(result[:duration]).value, showvalues = to_show)
 
         open(file_path, "a") do file
-            serialize(file, result[:adn_score_list])
+            serialize(file, result[:species_list])
         end
 
     end
 end
 
 function load_session(file_path="current_session")
-    history = Vector{Tuple{AbstractAdn, Float64}}[]
+    history = []
     params, custom_params = nothing, nothing
 
     open("current_session", "r") do file
@@ -282,6 +306,10 @@ function load_session(file_path="current_session")
             push!(history, deserialize(file))
         end
     end
+
+    # We want to have a specific container
+    SpeciesType = typeof(history[1][1])
+    history = convert(Vector{Vector{SpeciesType}}, history)
 
     return (history, params, custom_params)
 end

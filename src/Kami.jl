@@ -84,148 +84,12 @@ function run_eq_diff_finder()
 end
 
 
-function show_adn_graph(adn::AbstractAdn, custom_params)
-    funct = create_adn_function(adn, custom_params)
-
-    graph = plot(custom_params.wanted_values, label="Wanted", ls=:dash, linewidth=3)
-    plot!(graph, funct, label="Result")
-
-    display(graph)
-end
-
-create_adn_function(adn::FunctionAdn, custom_params) = x->custom_params.funct(x, adn.params)
-create_adn_function(adn::EqDiffAdn, custom_params) = generate_solution(adn, custom_params)
-
-
-function create_gif_from_result(dir_path="result", gif_path="anim.gif")
-    fps = 10
-    run(`ffmpeg -i $dir_path/adn_plot_00001.png -vf palettegen the_palette.png`)
-    run(`ffmpeg -y -r $fps -f image2 -i $dir_path/adn_plot_%05d.png -i the_palette.png -filter_complex paletteuse $gif_path`)
-    rm("the_palette.png")
-end
-
-function create_pic_for_params(xparam, yparam, adn_list::Vector{<:AbstractAdn}, custom_params)
-    xlims = (minimum(custom_params[xparam]), maximum(custom_params[xparam]))
-
-    if yparam == nothing
-        ylims = (-1,1)
-        get_yparam = (adn, yparam) -> 0
-    else
-        ylims = (minimum(custom_params[yparam]), maximum(custom_params[yparam]))
-        get_yparam = (adn, yparam) -> adn[yparam]
-    end
-
-    adn_random = filter(x->x.type=="random", adn_list)
-    adn_child = filter(x->x.type=="child", adn_list)
-    adn_mutant = filter(x->x.type=="mutant", adn_list)
-
-
-    points_random = [(adn[xparam], get_yparam(adn, yparam)) for adn in adn_random]
-    points_child = [(adn[xparam], get_yparam(adn, yparam)) for adn in adn_child]
-    points_mutant = [(adn[xparam], get_yparam(adn, yparam)) for adn in adn_mutant]
-
-    plot_params = (xlims=xlims, ylims=ylims, xlabel=string(xparam), ylabel=string(yparam))
-    graph = scatter(points_random; legend = :none, color=:blue, legendfontsize=4, label="randoms", plot_params...)
-    scatter!(graph, points_child; label="children", color=:red, plot_params...)
-    scatter!(graph, points_mutant; label="mutants", color=:green,  plot_params...)
-
-    return graph
-end
-
-function create_pic_for_params(xparam, adn_list::Vector{<:AbstractAdn}, custom_params)
-    return create_pic_for_params(xparam, nothing, adn_list, custom_params)
-end
-
-function create_pics_of_adn_list(adn_list::Vector{<:AbstractAdn}, custom_params)
-    result = Plots.Plot[]
-
-    the_keys = collect(keys(custom_params.params_span))
-    len = length(custom_params.params_span)
-    for (xparam, yparam) in zip(the_keys[1:2:(len-1)], the_keys[2:2:len])
-        pic = create_pic_for_params(xparam, yparam, adn_list, custom_params)
-        push!(result, pic)
-    end
-
-    if len%2 == 1
-        pic = create_pic_for_params(the_keys[end], adn_list, custom_params)
-        push!(result, pic)
-    end
-
-    return result
-end
-
-function create_pics_of_history(history::Vector{Vector{Tuple{AbstractAdn, Float64}}}, custom_params, dir_path="result")
-    if ispath(dir_path)
-        error("'$dir_path' already exists")
-    else
-        mkdir("$dir_path")
-    end
-
-    xlims = (custom_params.wanted_values[1][1], custom_params.wanted_values[end][1])
-    yvalues = map(el->el[2], custom_params.wanted_values)
-    ylims = (minimum(yvalues), maximum(yvalues))
-
-    progress_time = Progress(length(history), "Time : ")
-
-    last_best_score = -Inf
-    number = 1
-    for (generation, adn_score_list) in enumerate(history)
-        best_score = adn_score_list[1][2]
-        if best_score > last_best_score
-            adn_list = map(el->el[1], adn_score_list)
-            title = plot(title = "$generation : $best_score", grid = false, showaxis = false)
-            adn_plot_list = create_pics_of_adn_list(adn_list, custom_params)
-
-            adn = get_best_adn(adn_score_list)
-            funct = create_adn_function(adn, custom_params)
-            graph = plot(custom_params.wanted_values, label="Wanted", xlims=xlims, ylims=ylims, ls=:dash, linewidth=3)
-            plot!(graph, funct, label="Result $generation")
-
-            result = plot(title, plot(graph, adn_plot_list...), layout=@layout([a{0.02h}; b{0.98h}]))
-            formatted_number = format("{1:0>5}", number)
-            savefig(result, "$dir_path/adn_plot_$formatted_number.png")
-            last_best_score = best_score
-            number += 1
-        end
-        next!(progress_time)
-    end
-end
-
-function create_pics_of_function(adn_list::Vector{<:AbstractAdn}, custom_params, dir_path="result")
-    if ispath(dir_path)
-        error("'$dir_path' already exists")
-    else
-        mkdir("$dir_path")
-    end
-
-    xlims = (custom_params.wanted_values[1][1], custom_params.wanted_values[end][1])
-    ylims = (custom_params.wanted_values[1][2], custom_params.wanted_values[end][2])
-
-    progress_time = Progress(length(history), "Time : ")
-
-    last_adn = nothing
-    number = 1
-    for (generation, adn) in enumerate(adn_list)
-        if last_adn != adn
-            funct = create_adn_function(adn, custom_params)
-            graph = plot(custom_params.wanted_values, label="Wanted", xlims=xlims, ylims=ylims, ls=:dash, linewidth=3)
-            plot!(graph, funct, label="Result $generation")
-            formatted_number = format("{1:0>5}", number)
-            number += 1
-            savefig(graph, "$dir_path/plot_$formatted_number.png")
-            last_adn = adn
-        end
-        next!(progress_time)
-    end
-end
-
 function show_result()
     history, params, custom_params = load_session()
 
     menu = RadioMenu(["best adn",
                       "show best adn graph",
                       "score history",
-                      "history",
                       "create pics of function",
                       "create pics of adn history",
                       "create gif from pics directory",
@@ -238,28 +102,23 @@ function show_result()
         println("-"^50)
         choice = request("Choose : ", menu)
 
-        best_adn_score = history[end][1]
+        best_adn = get_best_adn(history)
+        best_score = get_best_score(history)
         if choice == 1
-            println("best adn = ", best_adn_score[1])
-            println("score = ", best_adn_score[2])
+            println("best adn = ", best_adn)
+            println("score = ", best_score)
         elseif choice == 2
-            show_adn_graph(best_adn_score[1], custom_params)
+            show_adn_graph(best_adn, custom_params)
         elseif choice == 3
-            for (generation, adn_score_list) in enumerate(history)
-                adn_score = adn_score_list[1]
-                println("Generation $generation = ", adn_score[2])
+            for (generation, species_list) in enumerate(history)
+                println("Generation $generation = ", get_best_score(species_list))
             end
         elseif choice == 4
-            for (generation, adn_score_list) in enumerate(history)
-                println("-"^10," Generation $generation ", "-"^10)
-                println(map(el->el[1], adn_score_list))
-            end
-        elseif choice == 5
-            adn_list = [adn_score_list[1][1] for adn_score_list in history]
+            adn_list = [get_best_adn(species_list) for species_list in history]
             ask_with_default_dir(create_pics_of_function, adn_list, custom_params)
-        elseif choice == 6
+        elseif choice == 5
             ask_with_default_dir(create_pics_of_history, history, custom_params)
-        elseif choice == 7
+        elseif choice == 6
             ask_with_default_dir(create_gif_from_result)
         else
             println("goodbye")

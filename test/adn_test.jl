@@ -35,7 +35,7 @@ Kami.Adn.is_close(adn1::AdnMock, adn2::AdnMock, custom_params)::Bool = abs(adn1.
         generator = create_improve_generator(AdnMock, params, -4)
         adn = nothing
         for result in generator
-            adn = result[:adn_score_list][1][1]
+            adn = get_best_adn(result[:species_list])
         end
         @test action(adn, -4) == 0
     end
