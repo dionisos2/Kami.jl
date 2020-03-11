@@ -49,7 +49,7 @@ function run_function_finder()
     wanted_values = [(x, real_funct(x)) for x in 0:0.1:10]
     params_span = [-20:0.1:20, -20:0.1:20, -20:0.1:20, -20:0.1:20]
 
-    params = Params(duration_max=Second(60*3), score_max=-1.)
+    params = Params(duration_max=Second(10), score_max=-1.)
     custom_params = FunctionParams(params_span,
                                    funct=funct,
                                    wanted_values=wanted_values,

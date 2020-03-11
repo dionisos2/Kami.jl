@@ -71,8 +71,8 @@ function get_plot_list_of_species_list(species_list::Vector{<:Species}, custom_p
 
 
     plot_list = nothing
-    for (species, color) in zip(species_list[2:end], color_list[2:end])
-        adn_list = map(el->el[1], species.adn_score_list)
+    for (species, color) in zip(species_list, color_list)
+        adn_list = map(el->el.adn, species.enriched_adn_list)
         plot_list = get_plot_list_of_adn_list(adn_list, color, custom_params, plot_list)
     end
 
@@ -116,10 +116,10 @@ function create_pics_of_history(history::Vector{Vector{Species{AdnType}}}, custo
 
     last_best_score = -Inf
     number = 1
+
     for (generation, species_list) in enumerate(history)
         best_score = get_best_score(species_list)
         if best_score > last_best_score
-            adn_score_list = get_adn_score_list(species_list)
             title = plot(title = "$generation : $best_score", grid = false, showaxis = false)
             species_plot_list = get_plot_list_of_species_list(species_list, custom_params)
 

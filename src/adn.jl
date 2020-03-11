@@ -6,20 +6,25 @@ using Dates
 using ProgressMeter
 using Serialization
 
-export AbstractAdn, Params, Species
+export AbstractAdn, Params, EnrichedAdn, Species
 
 export improve!, create_improve_generator, run_session, load_session
 export create_random_list, create_mutant_list, create_child_list
 
 export create_random_species, create_random_species_list
 export delete_close_species, delete_bad_stagnant_species
-export get_best_adn, get_best_score, get_adn_score_list, is_better
+export get_best_adn, get_best_score, get_enriched_adn_list, is_better
 
 #API export
 export action, create_random, mutate, create_child
 
 
 abstract type AbstractAdn end
+
+struct EnrichedAdn{AdnType<:AbstractAdn}
+    adn::AdnType
+    score::Float64
+end
 
 "All the necessary parameters for using this module"
 @with_kw struct Params
@@ -36,28 +41,39 @@ abstract type AbstractAdn end
 
 end
 
-mutable struct Species{AdnType<: AbstractAdn}
-    adn_score_list::Vector{Tuple{AdnType, Float64}}
+mutable struct Species{AdnType<:AbstractAdn}
+    enriched_adn_list::Vector{EnrichedAdn{AdnType}}
     params::Params
     custom_params
     stagnation_count::Int
+
+    function Species{AdnType}(enriched_adn_list::Vector{EnrichedAdn{AdnType}},
+                              params::Params,
+                              custom_params,
+                              stagnation_count::Int) where AdnType<:AbstractAdn
+        sort!(enriched_adn_list, by=el->el.score, rev=true)
+        return new(enriched_adn_list, params, custom_params, stagnation_count)
+    end
 end
 
-Species(adn_score_list::Vector{Tuple{AdnType, Float64}}, params::Params, custom_params) where AdnType<:AbstractAdn = Species{AdnType}(adn_score_list, params, custom_params, 0)
+Generation = Vector{Species{AdnType}} where AdnType <: AbstractAdn
+
+Species(enriched_adn_list::Vector{EnrichedAdn{AdnType}}, params::Params, custom_params, stagnation_count=0) where AdnType<:AbstractAdn = Species{AdnType}(enriched_adn_list, params, custom_params, stagnation_count)
 
 function Species(adn_list::Vector{AdnType},
-                 params::Params, custom_params) where AdnType<:AbstractAdn
-    adn_score_list = [(adn, action(adn, custom_params)) for adn in adn_list]
-    sort!(adn_score_list, by=el->el[2], rev=true)
-    return Species{AdnType}(adn_score_list, params, custom_params, 0)
+                 params::Params,
+                 custom_params,
+                 stagnation_count=0) where AdnType<:AbstractAdn
+    enriched_adn_list = [EnrichedAdn(adn, action(adn, custom_params)) for adn in adn_list]
+    return Species{AdnType}(enriched_adn_list, params, custom_params, stagnation_count)
 end
 
 function Base.copy(species::Species)
-    adn_score_list = deepcopy(species.adn_score_list)
+    enriched_adn_list = deepcopy(species.enriched_adn_list)
     params = species.params
     custom_params = species.custom_params
     stagnation_count = species.stagnation_count
-    return Species(adn_score_list, params, custom_params, stagnation_count)
+    return Species(enriched_adn_list, params, custom_params, stagnation_count)
 end
 
 # ---------- API start ----------
@@ -74,39 +90,56 @@ action(adn::AbstractAdn, custom_params)::Float64 = throw(MissingException("actio
 "Mutate a adn"
 (mutate(adn::T, custom_params)::T) where T<:AbstractAdn = throw(MissingException("mutate should be defined for concrete type of AbstractAdn"))
 
+# alternatively and preferably to defining the preceding mutate(adn::T, custom_params), you can define this two methods (create_mutation and mutate)
+"create a mutation to be used later on a adn, return false if undefined for concrete type"
+create_mutation(adn::AbstractAdn, custom_params) = false
+(mutate(adn::AdnType, custom_params, mutation)::AdnType) where AdnType<:AbstractAdn = throw(MissingException("mutate should be defined for concrete type of AbstractAdn"))
+
+
 "Create a child adn from parents"
 (create_child(parents::Vector{T}, custom_params)::T) where T<:AbstractAdn = throw(MissingException("create_child should be defined for concrete type of AbstractAdn"))
 
 "Check if adn1 and adn2 are close in term of their inherents properties"
 is_close(adn1::AbstractAdn, adn2::AbstractAdn, custom_params)::Bool= throw(MissingException("is_close should be defined for concrete type of AbstractAdn"))
 
-"Whatever you want to show at each generation"
-function print_generation_result(adn_score_list::Vector{Tuple{T,Float64}}, best_score::Float64, duration::Period, generation::Int, params::Params, custom_params) where T<:AbstractAdn
-    println("-"^10,"GENERATION:",generation,"-"^10)
-    println("score = ", best_score, "/", params.score_max)
-    println("duration = ", duration.value/1000, "/", params.duration_max)
-    println(adn_score_list[1])
-end
-
 # ---------- API end ----------
 
 function create_random_list(AdnType::Type{<:AbstractAdn}, count, custom_params)
-    return [create_random(AdnType, custom_params) for _ in 1:count]
+    random_list = EnrichedAdn{AdnType}[]
+
+    for _ in 1:count
+        adn = create_random(AdnType, custom_params)
+        score = action(adn, custom_params)
+        push!(random_list, EnrichedAdn{AdnType}(adn, score))
+    end
+
+    return random_list
 end
 
-function create_mutant_list(adn_list::Vector{<:AbstractAdn}, count, custom_params)
-    mutant_list = []
-    len = length(adn_list)
+function create_mutant_list(enriched_adn_list::Vector{EnrichedAdn{AdnType}}, count, custom_params, good_mutation_for_adn = nothing) where AdnType<:AbstractAdn
+    mutant_list = EnrichedAdn{AdnType}[]
+    len = length(enriched_adn_list)
 
     for index in 0:count-1
-        push!(mutant_list, mutate(adn_list[(index%len)+1], custom_params))
+        enriched_adn = enriched_adn_list[(index%len)+1]
+        mutant = mutate(enriched_adn.adn, custom_params)
+        score = action(mutant, custom_params)
+        push!(mutant_list, EnrichedAdn(mutant, score))
     end
 
     return mutant_list
 end
 
-function create_child_list(adn_list::Vector{<:AbstractAdn}, count, custom_params)
-    return [create_child(adn_list, custom_params) for _ in 1:count]
+function create_child_list(enriched_adn_list::Vector{EnrichedAdn{AdnType}}, count, custom_params) where AdnType<:AbstractAdn
+    child_list = EnrichedAdn{AdnType}[]
+    adn_list = map(el->el.adn, enriched_adn_list)
+
+    for _ in 1:count
+        adn = create_child(adn_list, custom_params)
+        score = action(adn, custom_params)
+        push!(child_list, EnrichedAdn(adn, score))
+    end
+    return child_list
 end
 
 function create_random_species_list(AdnType::Type{<:AbstractAdn}, species_count::Int, params::Params, custom_params)
@@ -114,8 +147,8 @@ function create_random_species_list(AdnType::Type{<:AbstractAdn}, species_count:
 end
 
 function create_random_species(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
-    adn_list = create_random_list(AdnType, params.adn_by_species, custom_params)
-    return Species(adn_list, params, custom_params)
+    enriched_adn_list = create_random_list(AdnType, params.adn_by_species, custom_params)
+    return Species(enriched_adn_list, params, custom_params)
 end
 
 function improve!(species::Species{AdnType}) where AdnType<:AbstractAdn
@@ -132,18 +165,16 @@ function improve!(species::Species{AdnType}) where AdnType<:AbstractAdn
     end
 
     best_score = get_best_score(species)
-    species.adn_score_list = species.adn_score_list[1:end-to_remove_count]
-    best_adn_list = [adn_score[1] for adn_score in species.adn_score_list]
+    species.enriched_adn_list = species.enriched_adn_list[1:end-to_remove_count]
 
     custom_params = species.custom_params
-    new_random_list = create_random_list(AdnType, random_count, custom_params)
-    new_child_list = create_child_list(best_adn_list, child_count, custom_params)
-    new_mutant_list = create_mutant_list(best_adn_list, mutant_count, custom_params)
-    new_adn_list = [new_random_list; new_child_list; new_mutant_list]
+    new_random_list::Vector{EnrichedAdn{AdnType}} = create_random_list(AdnType, random_count, custom_params)
+    new_child_list::Vector{EnrichedAdn{AdnType}} = create_child_list(species.enriched_adn_list, child_count, custom_params)
+    new_mutant_list::Vector{EnrichedAdn{AdnType}} = create_mutant_list(species.enriched_adn_list, mutant_count, custom_params)
+    new_enriched_adn_list = [new_random_list; new_child_list; new_mutant_list]
 
-    new_adn_score_list = [(adn, action(adn, custom_params)) for adn in new_adn_list]
-    append!(species.adn_score_list, new_adn_score_list)
-    sort!(species.adn_score_list, by=el->el[2], rev=true)
+    append!(species.enriched_adn_list, new_enriched_adn_list)
+    sort!(species.enriched_adn_list, by=el->el.score, rev=true)
 
     new_best = get_best_score(species)
     if new_best == best_score
@@ -165,7 +196,6 @@ function delete_close_species(species_list::Vector{SpeciesType}) where SpeciesTy
         end
     end
 
-    sort!(new_species_list, lt=is_better)
     return new_species_list
 end
 
@@ -192,43 +222,46 @@ function delete_bad_stagnant_species(species_list::Vector{<:Species})
     return [species_list[1:middle]; bad_species]
 end
 
-function get_adn_score_list(species_list::Vector{Species{AdnType}}) where AdnType <: AbstractAdn
-    adn_score_list = Tuple{AdnType, Float64}[]
+function get_enriched_adn_list(species_list::Vector{Species{AdnType}}) where AdnType <: AbstractAdn
+    enriched_adn_list = EnrichedAdn{AdnType}[]
 
     for species in species_list
-        append!(adn_score_list, species.adn_score_list)
+        append!(enriched_adn_list, species.enriched_adn_list)
     end
-    sort!(adn_score_list, by=el->el[2], rev=true)
-    return adn_score_list
+    sort!(enriched_adn_list, by=el->el.score, rev=true)
+    return enriched_adn_list
 end
 
-get_best_score(adn_score_list::Vector{Tuple{AdnType, Float64}}) where AdnType<:AbstractAdn = adn_score_list[1][2]
-get_best_adn(adn_score_list::Vector{Tuple{AdnType, Float64}}) where AdnType<:AbstractAdn = adn_score_list[1][1]
+get_best_score(enriched_adn_list::Vector{EnrichedAdn{AdnType}}) where AdnType<:AbstractAdn = enriched_adn_list[1].score
+get_best_adn(enriched_adn_list::Vector{EnrichedAdn{AdnType}}) where AdnType<:AbstractAdn = enriched_adn_list[1].adn
+get_best_enriched_adn(enriched_adn_list::Vector{EnrichedAdn{AdnType}}) where AdnType<:AbstractAdn = enriched_adn_list[1]
 
-get_best_score(species::Species) = get_best_score(species.adn_score_list)
-get_best_adn(species::Species) = get_best_adn(species.adn_score_list)
+get_best_score(species::Species) = get_best_score(species.enriched_adn_list)
+get_best_adn(species::Species) = get_best_adn(species.enriched_adn_list)
+get_best_enriched_adn(species::Species) = get_best_enriched_adn(species.enriched_adn_list)
 
-get_best_score(species_list::Vector{<:Species}) = get_best_score(get_adn_score_list(species_list))
-get_best_adn(species_list::Vector{<:Species}) = get_best_adn(get_adn_score_list(species_list))
-
-
-get_best_score(history::Vector{Vector{Species{AdnType}}}) where AdnType<:AbstractAdn = get_best_adn_score(history)[2]
-get_best_adn(history::Vector{Vector{Species{AdnType}}}) where AdnType<:AbstractAdn = get_best_adn_score(history)[1]
+get_best_score(species_list::Vector{<:Species}) = get_best_score(get_enriched_adn_list(species_list))
+get_best_adn(species_list::Vector{<:Species}) = get_best_adn(get_enriched_adn_list(species_list))
+get_best_enriched_adn(species_list::Vector{<:Species}) = get_best_enriched_adn(get_enriched_adn_list(species_list))
 
 
-function get_best_adn_score(history::Vector{Vector{Species{AdnType}}}) where AdnType<:AbstractAdn
+get_best_score(history::Vector{<:Generation}) = get_best_enriched_adn(history).score
+get_best_adn(history::Vector{<:Generation}) = get_best_enriched_adn(history).adn
+
+
+function get_best_enriched_adn(history::Vector{<:Generation})
     best_score = -Inf
-    best_adn = nothing
+    best_enriched_adn = nothing
 
     for species_list in history
-        current_score = get_best_score(species_list)
-        if current_score >= best_score
-            best_score = current_score
-            best_adn = get_best_adn(species_list)
+        current_enriched_adn = get_best_enriched_adn(species_list)
+        if current_enriched_adn.score >= best_score
+            best_score = current_enriched_adn.score
+            best_enriched_adn = current_enriched_adn
         end
     end
 
-    return (best_adn, best_score)
+    return best_enriched_adn
 end
 
 "Improve a list of adn, until we get something bigger than score_max or until duration_max passed"
@@ -242,8 +275,8 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
 
     function producer(c::Channel)
         species_list = create_random_species_list(AdnType, species_count, params, custom_params)
-        adn_score_list = get_adn_score_list(species_list)
-        best_score = get_best_score(adn_score_list)
+        sort!(species_list, lt=is_better)
+        best_score = get_best_score(species_list)
 
         put!(c, (species_list=species_list, duration=duration, params=params, custom_params=custom_params))
 
@@ -258,16 +291,16 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
             species_to_add = species_count - length(species_list)
             new_species = create_random_species_list(AdnType, species_to_add, params, custom_params)
             append!(species_list, new_species)
-
-            adn_score_list = get_adn_score_list(species_list)
+            sort!(species_list, lt=is_better)
 
             generation += 1
-            best_score = get_best_score(adn_score_list)
+            best_score = get_best_score(species_list)
             duration = now()-start_date
             put!(c, (species_list=species_list, duration=duration, params=params, custom_params=custom_params))
             sleep(0.01)
         end
     end
+
 
     return Channel(producer)
 end
