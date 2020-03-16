@@ -49,10 +49,10 @@ function run_function_finder()
     wanted_values = [(x, real_funct(x)) for x in 0:0.1:10]
     params_span = repeat([-20:0.1:20], 6)
 
-    params = Params(duration_max=Second(60*5),
-                    score_max=-1.,
+    params = Params(duration_max=Second(60*2),
+                    score_max=-10.,
                     random_ratio=0,
-                    stagnation_max=30,
+                    stagnation_max=100,
                     species_count=10,
                     adn_by_species=20
                     )
@@ -68,25 +68,24 @@ end
 
 function run_eq_diff_finder()
     t, Y, a1, a2, a3, q, n = :t, :Y, :a1, :a2, :a3, :q, :n
-    # dY = Symbol(-a1*Y - a2*Y^2 + (a3 * Y + q) * Y^(1-(1/n))
-    # data = CSV.read("dataset/kami.csv")
-    # wanted_values = collect(zip(data[:,:x],data[:,:y]))
+    dY = Symbol("-a1*Y - a2*Y^2 + (a3 * Y + q) * Y^(1-(1/n))")
+    data = CSV.read("dataset/kami.csv")
+    wanted_values = collect(zip(data[:,:x],data[:,:y]))
 
     # c1*e^(a1*t)-a2/a1
     # a1 = 1/300 ; a2=2*-a1= -2/300
-    wanted_values = [(Float64(t), 2+exp(t/300)) for t in 0:1000]
-
-    dY = Symbol("a1*Y + a2")
+    # wanted_values = [(Float64(t), 2+exp(t/300)) for t in 0:1000]
+    # dY = Symbol("a1*Y + a2")
 
     params_span = Tuple{Symbol, StepRangeLen}[
         (a1, 0.0001:eps():0.01),
         (a2, -0.01:eps():-0.0001),
-        # (a3, 0:eps():10),
-        # (q, 0:eps():10),
-        # (n, 1:eps():2)
+        (a3, 0:eps():10),
+        (q, 0:eps():10),
+        (n, 1:eps():2)
     ];
 
-    params = Params(duration_max=Second(60*5))
+    params = Params(duration_max=Second(60*30))
     custom_params = EqDiffParams(params_span, dfunct=dY, funct=Y, variable=t, dvariable=0.5, wanted_values=wanted_values, mutate_max_speed=0.001)
 
     run_session(EqDiffAdn, params, custom_params)
