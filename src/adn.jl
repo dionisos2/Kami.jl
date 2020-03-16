@@ -204,6 +204,7 @@ function delete_close_species(species_list::Vector{SpeciesType}) where SpeciesTy
         end
     end
 
+    sort!(new_species_list, lt=is_better)
     return new_species_list
 end
 
