@@ -80,6 +80,12 @@ function Base.copy(species::Species)
     return Species(enriched_adn_list, params, custom_params, stagnation_count)
 end
 
+mutable struct IterGeneration{AdnType}
+    current_generation::Vector{Species{AdnType}}
+    start_date::DateTime
+    best_score::Float64
+    generation::Int
+end
 # ---------- API start ----------
 
 # The parentheses in (f(x::T)::T) where T are here because otherwise it throw an error.
@@ -266,6 +272,45 @@ function get_best_enriched_adn(history::Vector{<:Generation})
     return best_enriched_adn
 end
 
+function Base.iterate(iter_generation::IterGeneration{AdnType}, state=nothing) where AdnType<:AbstractAdn
+    first_species = iter_generation.current_generation[1]
+    params = first_species.params
+    custom_params = first_species.custom_params
+    @unpack score_max, duration_max, species_count = params
+
+    duration = now()-iter_generation.start_date
+    if state == nothing
+        species_list = iter_generation.current_generation
+        result = (species_list=species_list, duration=duration, params=params, custom_params=custom_params)
+        return (result, iter_generation)
+    end
+
+    if ((iter_generation.best_score >= score_max) || (duration >= duration_max))
+        return nothing
+    end
+
+    for species in iter_generation.current_generation
+        improve!(species)
+    end
+
+    species_list = delete_close_species(iter_generation.current_generation)
+    species_list = delete_bad_stagnant_species(species_list)
+
+    species_to_add = species_count - length(species_list)
+    new_species = create_random_species_list(AdnType, species_to_add, params, custom_params)
+    append!(species_list, new_species)
+    sort!(species_list, lt=is_better)
+
+    iter_generation.generation += 1
+    iter_generation.best_score = get_best_score(species_list)
+    iter_generation.current_generation = species_list
+
+    result = (species_list=species_list, duration=duration, params=params, custom_params=custom_params)
+
+    return (result, iter_generation)
+end
+
+
 "Improve a list of adn, until we get something bigger than score_max or until duration_max passed"
 function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, custom_params)
     @unpack score_max, duration_max, species_count = params
@@ -275,36 +320,13 @@ function create_improve_generator(AdnType::Type{<:AbstractAdn}, params::Params, 
     duration = now()-start_date
     generation = 1
 
-    function producer(c::Channel)
-        species_list = create_random_species_list(AdnType, species_count, params, custom_params)
-        sort!(species_list, lt=is_better)
-        best_score = get_best_score(species_list)
+    species_list = create_random_species_list(AdnType, species_count, params, custom_params)
+    sort!(species_list, lt=is_better)
+    best_score = get_best_score(species_list)
 
-        put!(c, (species_list=species_list, duration=duration, params=params, custom_params=custom_params))
+    iter_generation = IterGeneration{AdnType}(species_list, start_date, best_score, generation)
 
-        while ((best_score < score_max) && (duration < duration_max))
-            for species in species_list
-                improve!(species)
-            end
-
-            species_list = delete_close_species(species_list)
-            species_list = delete_bad_stagnant_species(species_list)
-
-            species_to_add = species_count - length(species_list)
-            new_species = create_random_species_list(AdnType, species_to_add, params, custom_params)
-            append!(species_list, new_species)
-            sort!(species_list, lt=is_better)
-
-            generation += 1
-            best_score = get_best_score(species_list)
-            duration = now()-start_date
-            put!(c, (species_list=species_list, duration=duration, params=params, custom_params=custom_params))
-            sleep(0.01)
-        end
-    end
-
-
-    return Channel(producer)
+    return iter_generation
 end
 
 

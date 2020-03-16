@@ -20,7 +20,7 @@ using .FitEqDiff
 using .FitFunction
 include("bordel.jl")
 
-export main, @enter, show_result
+export main, @enter, show_result, plop
 
 function main()
     menu = RadioMenu(["run_function_finder",
