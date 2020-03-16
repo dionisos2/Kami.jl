@@ -71,6 +71,27 @@ function Adn.create_random(_::Type{FunctionAdn}, custom_params::FunctionParams):
     return FunctionAdn(params, type="random")
 end
 
+function Adn.create_mutation(adn::FunctionAdn, custom_params::FunctionParams)
+    msp = custom_params.mutate_max_speed
+    return [rand(-msp:eps():msp) for _ in 1:length(adn.params)]
+end
+
+function Adn.mutate(adn::FunctionAdn, custom_params::FunctionParams, mutation)::FunctionAdn
+    adn_res = copy(adn, "mutant")
+    for (index, dparam) in enumerate(mutation)
+        adn_res.params[index] += dparam
+        if adn_res.params[index] > maximum(custom_params[index])
+            adn_res.params[index] = maximum(custom_params[index])
+        end
+
+        if adn_res.params[index] < minimum(custom_params[index])
+            adn_res.params[index] = minimum(custom_params[index])
+        end
+    end
+
+    return adn_res
+end
+
 function Adn.mutate(adn::FunctionAdn, custom_params::FunctionParams)::FunctionAdn
     adn_res = copy(adn, "mutant")
     msp = custom_params.mutate_max_speed

@@ -21,7 +21,7 @@ export action, create_random, mutate, create_child
 
 abstract type AbstractAdn end
 
-struct EnrichedAdn{AdnType<:AbstractAdn}
+mutable struct EnrichedAdn{AdnType<:AbstractAdn}
     adn::AdnType
     score::Float64
     good_mutation::Any
@@ -35,9 +35,9 @@ EnrichedAdn(adn::AbstractAdn, custom_params) = EnrichedAdn(adn, action(adn, cust
     score_max::Float64 = 0
     duration_max::Period = Second(10)
 
-    species_count::Int = 5
+    species_count::Int = 7
     adn_by_species::Int = 10
-    stagnation_max::Int = 10
+    stagnation_max::Int = 20
 
     random_ratio::Float64 = 0.1
     child_ratio::Float64 = 0.1
@@ -101,8 +101,8 @@ action(adn::AbstractAdn, custom_params)::Float64 = throw(MissingException("actio
 (mutate(adn::T, custom_params)::T) where T<:AbstractAdn = throw(MissingException("mutate should be defined for concrete type of AbstractAdn"))
 
 # alternatively and preferably to defining the preceding mutate(adn::T, custom_params), you can define this two methods (create_mutation and mutate)
-"create a mutation to be used later on a adn, return false if undefined for concrete type"
-create_mutation(adn::AbstractAdn, custom_params) = false
+"create a mutation to be used later on a adn, return nothing if undefined for concrete type"
+create_mutation(adn::AbstractAdn, custom_params) = nothing
 (mutate(adn::AdnType, custom_params, mutation)::AdnType) where AdnType<:AbstractAdn = throw(MissingException("mutate should be defined for concrete type of AbstractAdn"))
 
 
@@ -131,8 +131,33 @@ function create_mutant_list(enriched_adn_list::Vector{EnrichedAdn{AdnType}}, cou
 
     for index in 0:count-1
         enriched_adn = enriched_adn_list[(index%len)+1]
-        mutant = mutate(enriched_adn.adn, custom_params)
-        push!(mutant_list, EnrichedAdn(mutant, custom_params))
+        mutation = create_mutation(enriched_adn.adn, custom_params)
+        if mutation == nothing
+            mutant = mutate(enriched_adn.adn, custom_params)
+            enriched_mutant = EnrichedAdn(mutant, custom_params)
+        else
+            if enriched_adn.good_mutation != nothing
+                mutation = enriched_adn.good_mutation
+            end
+            mutation_to_do = 2^enriched_adn.good_mutation_count
+            mutant = enriched_adn.adn
+            for _ in 1:mutation_to_do
+                mutant = mutate(mutant, custom_params, mutation)
+            end
+
+            enriched_mutant = EnrichedAdn(mutant,
+                                          action(mutant, custom_params),
+                                          mutation,
+                                          enriched_adn.good_mutation_count + 1)
+
+            if enriched_adn.good_mutation_count <= 1
+                enriched_adn.good_mutation_count = 0
+                enriched_adn.good_mutation = nothing
+            else
+                enriched_adn.good_mutation_count = 1
+            end
+        end
+        push!(mutant_list, enriched_mutant)
     end
 
 

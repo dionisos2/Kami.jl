@@ -49,11 +49,19 @@ function run_function_finder()
     wanted_values = [(x, real_funct(x)) for x in 0:0.1:10]
     params_span = repeat([-20:0.1:20], 6)
 
-    params = Params(duration_max=Second(60*5), score_max=-1.)
+    params = Params(duration_max=Second(60*5),
+                    score_max=-1.,
+                    random_ratio=0,
+                    stagnation_max=30,
+                    species_count=10,
+                    adn_by_species=20
+                    )
+
     custom_params = FunctionParams(params_span,
                                    funct=funct,
                                    wanted_values=wanted_values,
-                                   mutate_max_speed=0.1)
+                                   mutate_max_speed=0.001,
+                                   )
 
     run_session(FunctionAdn, params, custom_params)
 end

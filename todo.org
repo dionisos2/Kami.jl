@@ -9,7 +9,7 @@
 * DONE add colors to species
 * DONE add graph in pics of adn value
 * DONE use iterator instead of channel
-* TODO improve mutation system
-* TODO make interface more interactive
-* TODO improve readme
-* TODO end
+* DONE improve mutation system
+* DONE make interface more interactive
+* DONE improve readme
+* DONE end

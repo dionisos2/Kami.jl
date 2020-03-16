@@ -128,6 +128,28 @@ function Adn.mutate(adn::EqDiffAdn, custom_params::EqDiffParams)::EqDiffAdn
     return adn_res
 end
 
+function Adn.create_mutation(adn::EqDiffAdn, custom_params::EqDiffParams)
+    msp = custom_params.mutate_max_speed
+    return Dict([(param.first, rand(-msp:eps():msp)) for param in adn.params])
+end
+
+function Adn.mutate(adn::EqDiffAdn, custom_params::EqDiffParams, mutation)::EqDiffAdn
+    adn_res = EqDiffAdn(;type="mutant")
+
+    for param in mutation
+        adn_res.params[param.first] = adn.params[param.first] + param.second
+        if adn_res.params[param.first] > maximum(custom_params[param.first])
+            adn_res.params[param.first] = maximum(custom_params[param.first])
+        end
+
+        if adn_res.params[param.first] < minimum(custom_params[param.first])
+            adn_res.params[param.first] = minimum(custom_params[param.first])
+        end
+    end
+
+    return adn_res
+end
+
 function Adn.create_child(parents::Vector{EqDiffAdn}, custom_params)::EqDiffAdn
     if isempty(parents)
         throw(DomainError("parents should not be empty"))
