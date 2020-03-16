@@ -24,7 +24,11 @@ abstract type AbstractAdn end
 struct EnrichedAdn{AdnType<:AbstractAdn}
     adn::AdnType
     score::Float64
+    good_mutation::Any
+    good_mutation_count::Int
 end
+
+EnrichedAdn(adn::AbstractAdn, custom_params) = EnrichedAdn(adn, action(adn, custom_params), nothing, 0)
 
 "All the necessary parameters for using this module"
 @with_kw struct Params
@@ -64,7 +68,7 @@ function Species(adn_list::Vector{AdnType},
                  params::Params,
                  custom_params,
                  stagnation_count=0) where AdnType<:AbstractAdn
-    enriched_adn_list = [EnrichedAdn(adn, action(adn, custom_params)) for adn in adn_list]
+    enriched_adn_list = [EnrichedAdn(adn, custom_params) for adn in adn_list]
     return Species{AdnType}(enriched_adn_list, params, custom_params, stagnation_count)
 end
 
@@ -109,8 +113,7 @@ function create_random_list(AdnType::Type{<:AbstractAdn}, count, custom_params)
 
     for _ in 1:count
         adn = create_random(AdnType, custom_params)
-        score = action(adn, custom_params)
-        push!(random_list, EnrichedAdn{AdnType}(adn, score))
+        push!(random_list, EnrichedAdn(adn, custom_params))
     end
 
     return random_list
@@ -123,9 +126,9 @@ function create_mutant_list(enriched_adn_list::Vector{EnrichedAdn{AdnType}}, cou
     for index in 0:count-1
         enriched_adn = enriched_adn_list[(index%len)+1]
         mutant = mutate(enriched_adn.adn, custom_params)
-        score = action(mutant, custom_params)
-        push!(mutant_list, EnrichedAdn(mutant, score))
+        push!(mutant_list, EnrichedAdn(mutant, custom_params))
     end
+
 
     return mutant_list
 end
@@ -136,8 +139,7 @@ function create_child_list(enriched_adn_list::Vector{EnrichedAdn{AdnType}}, coun
 
     for _ in 1:count
         adn = create_child(adn_list, custom_params)
-        score = action(adn, custom_params)
-        push!(child_list, EnrichedAdn(adn, score))
+        push!(child_list, EnrichedAdn(adn, custom_params))
     end
     return child_list
 end

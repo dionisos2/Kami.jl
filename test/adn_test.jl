@@ -31,7 +31,7 @@ Kami.Adn.is_close(adn1::AdnMock, adn2::AdnMock, custom_params)::Bool = abs(adn1.
     end
 
     @testset "create_improve_generator" begin
-        params = Params(adn_by_species = 10, duration_max=Second(4))
+        params = Params(adn_by_species = 2, duration_max=Second(4), species_count=1)
         generator = create_improve_generator(AdnMock, params, -4)
         adn = nothing
         for result in generator
@@ -47,7 +47,7 @@ end
         custom_params = 5
         spe1 = Species{AdnMock}(EnrichedAdn{AdnMock}[], params, custom_params, 10)
         adn = AdnMock()
-        spe2 = Species([EnrichedAdn(adn, action(adn, custom_params))], params, custom_params)
+        spe2 = Species([EnrichedAdn(adn, custom_params)], params, custom_params)
         spe3 = Species([adn], params, custom_params)
         spe_list = create_random_species_list(AdnMock, 5, params, custom_params)
         @test length(spe_list) == 5
@@ -76,7 +76,7 @@ end
     @testset "delete_bad_stagnant_species" begin
         params = Params(adn_by_species = 10, duration_max=Second(2), stagnation_max = 3)
         custom_params = 5
-        enriched_adn_list = [EnrichedAdn(AdnMock(x, x), action(AdnMock(x, x), custom_params)) for x in 1:10]
+        enriched_adn_list = [EnrichedAdn(AdnMock(x, x), custom_params) for x in 1:10]
         species_list = [Species([enriched_adn_list[index]], params, custom_params)
                         for index in 1:length(enriched_adn_list)]
         for species in species_list[1:5]
@@ -98,7 +98,7 @@ end
     @testset "delete_close_species" begin
         params = Params(adn_by_species = 10, duration_max=Second(2), stagnation_max = 3)
         custom_params = 5
-        enriched_adn_list = [EnrichedAdn(AdnMock(x, x), action(AdnMock(x, x), custom_params))
+        enriched_adn_list = [EnrichedAdn(AdnMock(x, x), custom_params)
                           for x in [1, 2, 4,5, 8, 10, 7]]
 
         species_list = [Species([enriched_adn_list[index]], params, custom_params)

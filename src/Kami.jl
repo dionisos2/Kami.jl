@@ -42,14 +42,14 @@ function main()
     end
 end
 
-funct(x, params) = (params[1]+x)*(params[2]+x)*(params[3]+x)*(params[4]+x)
+funct(x, params) = (params[1]+x)*(params[2]+x)*(params[3]+x)*(params[4]+x)*(params[5]+x)*(params[6]+x)
 
 function run_function_finder()
-    real_funct(x) = 147.0 + 88.9*x - 34.6*x^2 - 4.3*x^3 + x^4
+    real_funct(x) = 1470.0*x + 1036.0*x^2 - 257.1*x^3 - 77.6*x^4 + 5.7*x^5 + x^6
     wanted_values = [(x, real_funct(x)) for x in 0:0.1:10]
-    params_span = [-20:0.1:20, -20:0.1:20, -20:0.1:20, -20:0.1:20]
+    params_span = repeat([-20:0.1:20], 6)
 
-    params = Params(duration_max=Second(10), score_max=-1.)
+    params = Params(duration_max=Second(60*5), score_max=-1.)
     custom_params = FunctionParams(params_span,
                                    funct=funct,
                                    wanted_values=wanted_values,
